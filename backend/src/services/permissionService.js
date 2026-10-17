@@ -193,9 +193,45 @@ async function getDoctorApprovedPatients(doctorId) {
     return result.recordset;
 }
 
+async function revokePermission({ permissionId, userId }) {
+    const pool = getPool();
+
+    const result = await pool
+        .request()
+        .input('PermissionId', sql.Int, permissionId)
+        .input('UserId', sql.Int, userId)
+        .query(`
+            UPDATE p
+            SET
+                Status = 'revoked',
+                RespondedAt = SYSDATETIME()
+            OUTPUT
+                INSERTED.PermissionId,
+                INSERTED.PatientId,
+                INSERTED.DoctorId,
+                INSERTED.Status,
+                INSERTED.RespondedAt
+            FROM dbo.Permissions AS p
+            INNER JOIN dbo.PatientProfiles AS pp
+                ON pp.PatientId = p.PatientId
+            WHERE p.PermissionId = @PermissionId
+              AND pp.UserId = @UserId
+              AND p.Status = 'approved';
+        `);
+
+    if (result.recordset.length === 0) {
+        throw new Error(
+            'Approved permission not found for this patient'
+        );
+    }
+
+    return result.recordset[0];
+}
+
 module.exports = {
     requestPermission,
     getPatientPermissions,
     updatePermissionStatus,
-    getDoctorApprovedPatients
+    getDoctorApprovedPatients,
+    revokePermission
 };

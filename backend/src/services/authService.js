@@ -177,6 +177,7 @@ async function loginUser({
         );
     }
 
+        
     const rolesResult = await pool
         .request()
         .input('UserId', sql.Int, user.UserId)
@@ -193,6 +194,14 @@ async function loginUser({
                 'doctor' AS Role,
                 DoctorId AS RoleId
             FROM DoctorProfiles
+            WHERE UserId = @UserId
+
+            UNION ALL
+
+            SELECT
+                Role,
+                UserId AS RoleId
+            FROM UserRoles
             WHERE UserId = @UserId
         `);
 
