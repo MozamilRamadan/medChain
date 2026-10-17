@@ -123,7 +123,7 @@ class PermissionService {
   // ============================================================
   // Common response decoder
   // ============================================================
-Map<String, dynamic> _decodeResponse( http.Response response, ) {
+  Map<String, dynamic> _decodeResponse( http.Response response, ) {
    print('STATUS: ${response.statusCode}'); 
    print('BODY: ${response.body}'); 
    if (response.body.trim().isEmpty) { 
@@ -136,4 +136,28 @@ Map<String, dynamic> _decodeResponse( http.Response response, ) {
         );
          }
          }
+
+  // ============================================================
+  // revoke Permission
+  // ============================================================
+  Future<void> revokePermission({
+      required int permissionId,
+      required String token,
+    }) async {
+      final response = await http.put(
+        Uri.parse('$baseUrl/permissions/$permissionId/revoke'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final data = _decodeResponse(response);
+
+      if (response.statusCode != 200 || data['success'] != true) {
+        throw Exception(
+          data['message'] ?? 'Failed to revoke permission',
+        );
+      }
+    }
 }

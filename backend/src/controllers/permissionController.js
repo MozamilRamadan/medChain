@@ -2,7 +2,8 @@ const {
     requestPermission,
     getPatientPermissions,
     updatePermissionStatus,
-    getDoctorApprovedPatients
+    getDoctorApprovedPatients,
+    revokePermission
 } = require('../services/permissionService');
 
 
@@ -154,10 +155,47 @@ async function getDoctorApprovedPatientsController(req, res) {
     }
 }
 
+async function revokePermissionController(req, res) {
+  try {
+    const permissionId = Number(req.params.permissionId);
 
+    if (!Number.isInteger(permissionId) || permissionId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid permission ID'
+      });
+    }
+
+    const permission = await revokePermission({
+      permissionId,
+      userId: req.user.userId
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Permission revoked successfully',
+      permission
+    });
+  } catch (error) {
+    if (error.message === 'Approved permission not found for this patient') {
+      return res.status(404).json({
+        success: false,
+        message: error.message
+      });
+    }
+
+    console.error('Revoke permission error:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to revoke permission'
+    });
+  }
+}
 module.exports = {
     request,
     getPatientRequests,
     updateStatus,
-    getDoctorApprovedPatientsController
+    getDoctorApprovedPatientsController,
+    revokePermissionController
 };

@@ -8,7 +8,7 @@ const { connectDB } = require("./config/db");
 const recordRoutes = require("./routes/recordRoutes");
 const authRoutes = require("./routes/authRoutes");
 const permissionRoutes = require("./routes/permissionRoutes");
-
+const adminRoutes = require("./routes/adminRoutes");
 const app = express();
 
 app.use(cors());
@@ -17,6 +17,7 @@ app.use(express.json());
 app.use("/api/records", recordRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/permissions", permissionRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.get("/", (req, res) => {
     res.json({

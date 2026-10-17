@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:medchen/Screens/admin/admin_users_page.dart';
 
 import 'package:medchen/Screens/doctor/add_record_page.dart';
 import 'package:medchen/Screens/doctor/doctor_patients_page.dart';
@@ -10,10 +11,11 @@ import 'package:medchen/models/account.dart';
 
 class DashboardPage extends StatelessWidget {
   final Account account;
-
+  final String token;
   const DashboardPage({
     super.key,
     required this.account,
+    this.token = ''
   });
 
   @override
@@ -27,6 +29,9 @@ class DashboardPage extends StatelessWidget {
           (role) => role?.role == 'doctor',
           orElse: () => null,
         );
+    final isAdmin = account.roles.any(
+  (role) => role.role.toLowerCase() == 'admin',
+);
 
     return Scaffold(
       appBar: AppBar(
@@ -116,6 +121,7 @@ class DashboardPage extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (_) => PermissionRequestsPage(
                           patientId: patientRole.roleId,
+                          token: token,
                         ),
                       ),
                     );
@@ -184,7 +190,43 @@ class DashboardPage extends StatelessWidget {
                   },
                 ),
               ],
+              
+              if (isAdmin) ...[
+                const SizedBox(height: 20),
+                const Text(
+                  'Administrator',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 10),
 
+                ListTile(
+                  leading: const Icon(Icons.people),
+                  title: const Text('Manage Users'),
+                  subtitle: const Text('View registered users'),
+                  trailing: const Icon(Icons.arrow_forward_ios),
+                  onTap: () {
+                    if (token.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please log in again to access administration.'),
+                        ),
+                      );
+                      return;
+                    }
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AdminUsersPage(token: token),
+                      ),
+                    );
+                  },
+                ),
+              ],
+              
               const SizedBox(height: 30),
             ],
           ),

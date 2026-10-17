@@ -37,7 +37,7 @@ class _SubLoginPageState extends State<SubLoginPage> {
     passwordController.dispose();
     super.dispose();
   }
-
+  
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -54,14 +54,22 @@ class _SubLoginPageState extends State<SubLoginPage> {
       );
 
       final Account account = result['account'];
-
-      final requiredRole =
-          widget.isDoctor ? 'doctor' : 'patient';
-
-      final hasRequiredRole = account.roles.any(
-        (role) =>
-            role.role.toLowerCase() == requiredRole,
+      final String token = result['token'];
+      
+      debugPrint(
+        'USER ROLES: ${account.roles.map((role) => role.role).toList()}',
       );
+
+      final roles = account.roles
+          .map((role) => role.role.toLowerCase())
+          .toSet();
+
+      final isAdmin = roles.contains('admin');
+      final requiredRole = widget.isDoctor ? 'doctor' : 'patient';
+
+      // الطبيب يحتاج دور doctor، والمريض يحتاج دور patient.
+      // امتلاك admin وحده لا يمنح دور doctor أو patient تلقائيًا.
+      final hasRequiredRole = roles.contains(requiredRole);
 
       if (!hasRequiredRole) {
         if (!mounted) return;
@@ -84,6 +92,7 @@ class _SubLoginPageState extends State<SubLoginPage> {
         MaterialPageRoute(
           builder: (_) => DashboardPage(
             account: account,
+            token: token,
           ),
         ),
       );
@@ -93,10 +102,7 @@ class _SubLoginPageState extends State<SubLoginPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            e.toString().replaceFirst(
-              'Exception: ',
-              '',
-            ),
+            e.toString().replaceFirst('Exception: ', ''),
           ),
         ),
       );
@@ -108,6 +114,7 @@ class _SubLoginPageState extends State<SubLoginPage> {
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

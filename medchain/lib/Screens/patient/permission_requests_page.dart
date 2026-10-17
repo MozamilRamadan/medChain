@@ -4,10 +4,12 @@ import '../../services/permission_service.dart';
 
 class PermissionRequestsPage extends StatefulWidget {
   final int patientId;
+  final String token;
 
   const PermissionRequestsPage({
     super.key,
     required this.patientId,
+    required this.token,
   });
 
   @override
@@ -97,6 +99,32 @@ class _PermissionRequestsPageState
             ),
           ),
         ),
+      );
+    }
+  }
+  
+  
+  Future<void> revokePermission(int permissionId) async {
+    try {
+      await PermissionService().revokePermission(
+        permissionId: permissionId,
+        token: widget.token,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Doctor permission revoked successfully'),
+        ),
+      );
+
+      await loadPermissions();
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
       );
     }
   }
@@ -418,6 +446,44 @@ class _PermissionRequestsPageState
                   ),
                 ],
               ),
+            
+            if (status.toLowerCase() == 'approved')
+            
+              const SizedBox(height: 14),
+              TextButton.icon(
+                onPressed: () async {
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (dialogContext) => AlertDialog(
+                      title: const Text('Revoke Permission'),
+                      content: const Text(
+                        'Are you sure you want to revoke this doctor’s access?',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () =>
+                              Navigator.pop(dialogContext, false),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () =>
+                              Navigator.pop(dialogContext, true),
+                          child: const Text('Revoke'),
+                        ),
+                      ],
+                    ),
+                  );
+
+                  if (confirmed == true && mounted) {
+                    await revokePermission(
+                      int.parse(permission['PermissionId'].toString()),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.block),
+                label: const Text('Revoke Permission'),
+              ),
+            
             ],
           ],
         ),
