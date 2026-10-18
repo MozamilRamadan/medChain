@@ -118,4 +118,31 @@ class RecordService {
 
     return data['records'] ?? [];
   }
+
+  
+  Future<void> deleteRecord({
+    required int recordId,
+    required String token,
+  }) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/records/$recordId'),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.body.trim().isEmpty) {
+      throw Exception('Server returned an empty response');
+    }
+
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode != 200 || data['success'] != true) {
+      throw Exception(
+        data['message'] ?? 'Failed to delete medical record',
+      );
+    }
+  }
+
 }

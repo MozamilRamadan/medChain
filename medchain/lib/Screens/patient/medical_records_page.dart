@@ -63,6 +63,84 @@ class _MedicalRecordsPageState
     }
   }
 
+
+  Future<void> _deleteRecord(dynamic record) async {
+    final recordId = int.tryParse(
+      record['RecordId'].toString(),
+    );
+
+    if (recordId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid record ID'),
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete medical record?'),
+        content: const Text(
+          'This removes the record from SQL Server. '
+          'IPFS and blockchain copies are not deleted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await RecordService().deleteRecord(
+        recordId: recordId,
+        token: widget.token,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        records.removeWhere(
+          (item) =>
+              item['RecordId'].toString() ==
+              recordId.toString(),
+        );
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Medical record deleted'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceFirst(
+                  'Exception: ',
+                  '',
+                ),
+          ),
+        ),
+      );
+    }
+  }
+
+
   String formatDate(dynamic value) {
     try {
       final date = DateTime.parse(
@@ -545,6 +623,34 @@ class _MedicalRecordsPageState
               ),
             ),
           ),
+        
+                  
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              18,
+              4,
+              18,
+              12,
+            ),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => _deleteRecord(record),
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: Colors.red,
+                ),
+                label: const Text(
+                  'Delete record',
+                  style: TextStyle(
+                    color: Colors.red,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        
         ],
       ),
     );
