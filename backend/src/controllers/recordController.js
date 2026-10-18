@@ -1,3 +1,5 @@
+const { sql, getPool } = require("../config/db");
+
 const {
     addRecord: addBlockchainRecord
 } = require("../services/blockchainService");
@@ -26,6 +28,35 @@ async function getRecords(req, res) {
             });
         }
 
+
+        const pool = getPool(); 
+            const ownership = await pool
+                .request()
+                .input("UserId", sql.Int, req.user.userId)
+                .query(`
+                    SELECT TOP (1) PatientId
+                    FROM dbo.PatientProfiles
+                    WHERE UserId = @UserId
+                `);
+
+            if (ownership.recordset.length === 0) {
+                return res.status(403).json({
+                    success: false,
+                    message: "A patient account is required"
+                });
+            }
+
+            const ownPatientId =
+                ownership.recordset[0].PatientId;
+
+            if (ownPatientId !== patientId) {
+                return res.status(403).json({
+                    success: false,
+                    message: "You can only access your own medical records"
+                });
+            }
+
+            
         const records = await getPatientRecords(
             patientId
         );

@@ -8,9 +8,11 @@ const {
 
 const router = express.Router();
 
+const { requireAuth } =
+    require("../middleware/authMiddleware");
 
 // Patient records
-router.get("/:patientId", getRecords);
+router.get("/:patientId", requireAuth, getRecords);
 
 
 // Add record

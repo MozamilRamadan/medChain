@@ -53,20 +53,18 @@ class RecordService {
   }
 
   Future<List<dynamic>> getRecords(
-    int patientId,
-  ) async {
+    int patientId, {
+    required String token,
+  }) async {
     final url = '$baseUrl/records/$patientId';
 
     final response = await http.get(
       Uri.parse(url),
       headers: {
         'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
       },
     );
-
-    print('GET RECORDS URL: $url');
-    print('GET RECORDS STATUS: ${response.statusCode}');
-    print('GET RECORDS BODY: ${response.body}');
 
     if (response.body.trim().isEmpty) {
       throw Exception('Server returned empty response');
@@ -76,9 +74,12 @@ class RecordService {
 
     if (response.statusCode != 200) {
       throw Exception(
-        data['message'] ??
-            'Failed to load records',
+        data['message'] ?? 'Failed to load records',
       );
+    }
+
+    if (data['success'] != true) {
+      throw Exception('Failed to load records');
     }
 
     return data['records'] ?? [];

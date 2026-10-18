@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:medchen/services/medical_record_pdf_service.dart';
 import 'package:medchen/services/record_service.dart';
+import 'package:printing/printing.dart';
 
 class MedicalRecordsPage extends StatefulWidget {
   final int patientId;
+  final String patientName;
+  final String token;
 
   const MedicalRecordsPage({
     super.key,
     required this.patientId,
+    required this.patientName,
+    required this.token,
   });
 
   @override
@@ -17,7 +23,7 @@ class MedicalRecordsPage extends StatefulWidget {
 class _MedicalRecordsPageState
     extends State<MedicalRecordsPage> {
   List<dynamic> records = [];
-
+  bool isExporting = false;
   bool isLoading = true;
   String? errorMessage;
 
@@ -36,7 +42,10 @@ class _MedicalRecordsPageState
     try {
       final RecordService _recordService = RecordService();
 
-      final result = await _recordService.getRecords(widget.patientId,);
+      final result = await _recordService.getRecords(
+        widget.patientId,
+        token: widget.token,
+        );
 
       if (!mounted) return;
 
@@ -70,6 +79,53 @@ class _MedicalRecordsPageState
     }
   }
 
+  Future<void> _exportPdf({required bool share}) async {
+    if (records.isEmpty || isLoading || isExporting) {
+      return;
+    }
+
+    setState(() {
+      isExporting = true;
+    });
+
+    try {
+      final bytes = await MedicalRecordPdfService.generate(
+        patientId: widget.patientId,
+        patientName: widget.patientName,
+        records: records,
+      );
+
+      final filename =
+          'MedChain_Records_${widget.patientId}.pdf';
+
+      if (share) {
+        await Printing.sharePdf(
+          bytes: bytes,
+          filename: filename,
+        );
+      } else {
+        await Printing.layoutPdf(
+          name: filename,
+          onLayout: (_) async => bytes,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('PDF operation failed: $e'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isExporting = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -89,6 +145,20 @@ class _MedicalRecordsPageState
             onPressed: isLoading ? null : loadRecords,
             icon: const Icon(Icons.refresh),
           ),
+            IconButton(
+              tooltip: 'Save records as PDF',
+              onPressed: () => _exportPdf(share: false),
+              icon: const Icon(
+                Icons.picture_as_pdf_outlined,
+              ),
+            ),
+            IconButton(
+              tooltip: 'Share records',
+              onPressed: () => _exportPdf(share: true),
+              icon: const Icon(
+                Icons.share_outlined,
+              ),
+            ),
         ],
       ),
 

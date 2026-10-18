@@ -1,22 +1,65 @@
-import 'package:flutter/material.dart';
-import 'package:medchen/Screens/admin/admin_users_page.dart';
 
+import 'package:flutter/material.dart';
+
+import 'package:medchen/Screens/admin/admin_users_page.dart';
 import 'package:medchen/Screens/doctor/add_record_page.dart';
 import 'package:medchen/Screens/doctor/doctor_patients_page.dart';
 import 'package:medchen/Screens/doctor/request_permission_page.dart';
 import 'package:medchen/Screens/patient/medical_records_page.dart';
 import 'package:medchen/Screens/patient/permission_requests_page.dart';
+import 'package:medchen/Screens/login/login_page.dart';
 import 'package:medchen/global/app_button.dart';
 import 'package:medchen/models/account.dart';
 
 class DashboardPage extends StatelessWidget {
   final Account account;
   final String token;
+
   const DashboardPage({
     super.key,
     required this.account,
-    this.token = ''
+    this.token = '',
   });
+
+  Future<void> _logout(BuildContext context) async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Sign Out'),
+        content: const Text(
+          'Are you sure you want to sign out of MedChain?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop(false);
+            },
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop(true);
+            },
+            child: const Text('Sign Out'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogout != true || !context.mounted) {
+      return;
+    }
+
+    // Remove the dashboard and all previous pages from navigation.
+    // The user returns to the login page and cannot go back to
+    // the dashboard using the back button.
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => const LoginPage(),
+      ),
+      (route) => false,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,15 +72,26 @@ class DashboardPage extends StatelessWidget {
           (role) => role?.role == 'doctor',
           orElse: () => null,
         );
+
     final isAdmin = account.roles.any(
-  (role) => role.role.toLowerCase() == 'admin',
-);
+      (role) => role.role.toLowerCase() == 'admin',
+    );
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('MedChain'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Sign Out',
+            onPressed: () => _logout(context),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
+
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -46,7 +100,7 @@ class DashboardPage extends StatelessWidget {
             children: [
               const SizedBox(height: 20),
 
-              // Logo
+              // MedChain logo
               Center(
                 child: Image.asset(
                   'assets/images/icon_bg.jpg',
@@ -58,7 +112,7 @@ class DashboardPage extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              // Welcome
+              // Welcome message
               Text(
                 'Welcome, ${account.fullName}',
                 textAlign: TextAlign.center,
@@ -70,6 +124,7 @@ class DashboardPage extends StatelessWidget {
 
               const SizedBox(height: 8),
 
+              // Display the account roles
               Text(
                 account.roles
                     .map((role) => role.role)
@@ -85,7 +140,7 @@ class DashboardPage extends StatelessWidget {
 
               const SizedBox(height: 30),
 
-              // Patient Section
+              // PATIENT SECTION
               if (patientRole != null) ...[
                 _buildSectionTitle(
                   context,
@@ -104,6 +159,8 @@ class DashboardPage extends StatelessWidget {
                       MaterialPageRoute(
                         builder: (_) => MedicalRecordsPage(
                           patientId: patientRole.roleId,
+                          patientName: account.fullName,
+                          token: token,
                         ),
                       ),
                     );
@@ -129,9 +186,10 @@ class DashboardPage extends StatelessWidget {
                 ),
               ],
 
-              // Doctor Section
+              // DOCTOR SECTION
               if (doctorRole != null) ...[
-                if (patientRole != null) const SizedBox(height: 28),
+                if (patientRole != null)
+                  const SizedBox(height: 28),
 
                 _buildSectionTitle(
                   context,
@@ -190,28 +248,46 @@ class DashboardPage extends StatelessWidget {
                   },
                 ),
               ],
-              
+
+              // ADMIN SECTION
               if (isAdmin) ...[
-                const SizedBox(height: 20),
-                const Text(
+                const SizedBox(height: 28),
+
+                _buildSectionTitle(
+                  context,
                   'Administrator',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  Icons.admin_panel_settings_outlined,
                 ),
-                const SizedBox(height: 10),
+
+                const SizedBox(height: 12),
 
                 ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: Colors.grey.shade300,
+                    ),
+                  ),
                   leading: const Icon(Icons.people),
                   title: const Text('Manage Users'),
-                  subtitle: const Text('View registered users'),
-                  trailing: const Icon(Icons.arrow_forward_ios),
+                  subtitle: const Text(
+                    'View and manage registered users',
+                  ),
+                  trailing: const Icon(
+                    Icons.arrow_forward_ios,
+                    size: 18,
+                  ),
                   onTap: () {
                     if (token.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Please log in again to access administration.'),
+                          content: Text(
+                            'Please log in again to access administration.',
+                          ),
                         ),
                       );
                       return;
@@ -220,13 +296,15 @@ class DashboardPage extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => AdminUsersPage(token: token),
+                        builder: (_) => AdminUsersPage(
+                          token: token,
+                        ),
                       ),
                     );
                   },
                 ),
               ],
-              
+
               const SizedBox(height: 30),
             ],
           ),
