@@ -1,6 +1,8 @@
+
 import 'package:flutter/material.dart';
 import 'package:medchen/Screens/doctor/doctor_patient_records_page.dart';
 
+import '../../global/ProfileAvatar.dart';
 import '../../services/permission_service.dart';
 
 class DoctorPatientsPage extends StatefulWidget {
@@ -63,9 +65,12 @@ class _DoctorPatientsPageState
   }
 
   void _openPatientRecords(dynamic patient) {
-    final patientId = patient['PatientId'];
-    final patientName =
-        patient['FullName'] ?? 'Unknown Patient';
+    final int patientId =
+        int.parse(patient['PatientId'].toString());
+
+    final String patientName =
+        patient['FullName']?.toString() ??
+            'Unknown Patient';
 
     Navigator.push(
       context,
@@ -117,9 +122,7 @@ class _DoctorPatientsPageState
         ),
         itemCount: patients.length,
         itemBuilder: (context, index) {
-          return _buildPatientCard(
-            patients[index],
-          );
+          return _buildPatientCard(patients[index]);
         },
       ),
     );
@@ -127,10 +130,17 @@ class _DoctorPatientsPageState
 
   Widget _buildPatientCard(dynamic patient) {
     final patientId = patient['PatientId'];
-    final patientName =
-        patient['FullName'] ?? 'Unknown Patient';
-    final phone =
-        patient['Phone'] ?? 'No phone number';
+
+    final String patientName =
+        patient['FullName']?.toString() ??
+            'Unknown Patient';
+
+    final String phone =
+        patient['Phone']?.toString() ??
+            'No phone number';
+
+    final String? imagePath =
+        patient['ProfileImagePath']?.toString();
 
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
@@ -146,24 +156,10 @@ class _DoctorPatientsPageState
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              // Patient image
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  color: Theme.of(context)
-                      .colorScheme
-                      .primary
-                      .withValues(alpha: 0.08),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.asset(
-                    'assets/images/icon_bg.jpg',
-                    fit: BoxFit.contain,
-                  ),
-                ),
+              // Patient profile image
+              ProfileAvatar(
+                imagePath: imagePath,
+                radius:16 ,
               ),
 
               const SizedBox(width: 15),
@@ -171,8 +167,7 @@ class _DoctorPatientsPageState
               // Patient information
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       patientName,
@@ -194,11 +189,15 @@ class _DoctorPatientsPageState
                           color: Colors.grey.shade600,
                         ),
                         const SizedBox(width: 5),
-                        Text(
-                          'Patient ID: $patientId',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade700,
+                        Expanded(
+                          child: Text(
+                            'Patient ID: $patientId',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade700,
+                            ),
                           ),
                         ),
                       ],
@@ -218,12 +217,10 @@ class _DoctorPatientsPageState
                           child: Text(
                             phone,
                             maxLines: 1,
-                            overflow:
-                                TextOverflow.ellipsis,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 13,
-                              color:
-                                  Colors.grey.shade700,
+                              color: Colors.grey.shade700,
                             ),
                           ),
                         ),
@@ -235,7 +232,7 @@ class _DoctorPatientsPageState
 
               const SizedBox(width: 10),
 
-              // Open records
+              // Open patient records
               Container(
                 width: 42,
                 height: 42,
@@ -244,15 +241,12 @@ class _DoctorPatientsPageState
                       .colorScheme
                       .primary
                       .withValues(alpha: 0.10),
-                  borderRadius:
-                      BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   Icons.arrow_forward_ios,
                   size: 17,
-                  color: Theme.of(context)
-                      .colorScheme
-                      .primary,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
             ],
@@ -269,15 +263,12 @@ class _DoctorPatientsPageState
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           const SizedBox(height: 150),
-
           Icon(
             Icons.people_outline,
             size: 70,
             color: Colors.grey.shade400,
           ),
-
           const SizedBox(height: 20),
-
           const Text(
             'No Approved Patients',
             textAlign: TextAlign.center,
@@ -286,9 +277,7 @@ class _DoctorPatientsPageState
               fontWeight: FontWeight.bold,
             ),
           ),
-
           const SizedBox(height: 8),
-
           Text(
             'Patients who approve your access\nwill appear here.',
             textAlign: TextAlign.center,
@@ -310,15 +299,12 @@ class _DoctorPatientsPageState
         padding: const EdgeInsets.all(24),
         children: [
           const SizedBox(height: 120),
-
           Icon(
             Icons.error_outline,
             size: 70,
             color: Colors.red.shade300,
           ),
-
           const SizedBox(height: 20),
-
           const Text(
             'Unable to Load Patients',
             textAlign: TextAlign.center,
@@ -327,9 +313,7 @@ class _DoctorPatientsPageState
               fontWeight: FontWeight.bold,
             ),
           ),
-
           const SizedBox(height: 10),
-
           Text(
             errorMessage!,
             textAlign: TextAlign.center,
@@ -337,9 +321,7 @@ class _DoctorPatientsPageState
               color: Colors.grey.shade700,
             ),
           ),
-
           const SizedBox(height: 20),
-
           Center(
             child: ElevatedButton.icon(
               onPressed: _loadPatients,

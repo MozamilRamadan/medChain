@@ -1,13 +1,9 @@
+
 const { sql, getPool } = require('../config/db');
 
-
-async function requestPermission({
-    patientId,
-    doctorId
-}) {
+async function requestPermission({ patientId, doctorId }) {
     const pool = getPool();
 
-    // Check if patient exists
     const patientResult = await pool
         .request()
         .input('PatientId', sql.Int, patientId)
@@ -21,7 +17,6 @@ async function requestPermission({
         throw new Error('Patient not found');
     }
 
-    // Check if doctor exists
     const doctorResult = await pool
         .request()
         .input('DoctorId', sql.Int, doctorId)
@@ -35,15 +30,12 @@ async function requestPermission({
         throw new Error('Doctor not found');
     }
 
-    // Check existing pending/approved permission
     const existingResult = await pool
         .request()
         .input('PatientId', sql.Int, patientId)
         .input('DoctorId', sql.Int, doctorId)
         .query(`
-            SELECT
-                PermissionId,
-                Status
+            SELECT PermissionId, Status
             FROM Permissions
             WHERE PatientId = @PatientId
               AND DoctorId = @DoctorId
@@ -84,7 +76,6 @@ async function requestPermission({
     return result.recordset[0];
 }
 
-
 async function getPatientPermissions(patientId) {
     const pool = getPool();
 
@@ -101,6 +92,8 @@ async function getPatientPermissions(patientId) {
                 p.RespondedAt,
 
                 u.FullName AS DoctorName,
+                u.ProfileImagePath AS DoctorProfileImagePath,
+
                 d.LicenseNumber,
                 d.Specialization
 
@@ -120,15 +113,11 @@ async function getPatientPermissions(patientId) {
     return result.recordset;
 }
 
-
 async function updatePermissionStatus({
     permissionId,
     status
 }) {
-    const allowedStatuses = [
-        'approved',
-        'rejected'
-    ];
+    const allowedStatuses = ['approved', 'rejected'];
 
     if (!allowedStatuses.includes(status)) {
         throw new Error('Invalid permission status');
@@ -142,11 +131,9 @@ async function updatePermissionStatus({
         .input('Status', sql.NVarChar(20), status)
         .query(`
             UPDATE Permissions
-
             SET
                 Status = @Status,
                 RespondedAt = SYSDATETIME()
-
             OUTPUT
                 INSERTED.PermissionId,
                 INSERTED.PatientId,
@@ -154,7 +141,6 @@ async function updatePermissionStatus({
                 INSERTED.Status,
                 INSERTED.RequestedAt,
                 INSERTED.RespondedAt
-
             WHERE PermissionId = @PermissionId
         `);
 
@@ -175,7 +161,9 @@ async function getDoctorApprovedPatients(doctorId) {
             SELECT
                 p.PatientId,
                 u.FullName,
-                u.Phone
+                u.Phone,
+                u.ProfileImagePath AS ProfileImagePath
+
             FROM Permissions p
 
             INNER JOIN PatientProfiles pp

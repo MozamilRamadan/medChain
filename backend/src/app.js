@@ -10,7 +10,15 @@ const authRoutes = require("./routes/authRoutes");
 const permissionRoutes = require("./routes/permissionRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const app = express();
+const path = require('path');
+const profileRoutes = require('./routes/profileRoutes');
 
+app.use(
+  '/uploads',
+  express.static(path.join(__dirname, '../uploads'))
+);
+
+app.use('/api/profile', profileRoutes);
 app.use(cors());
 app.use(express.json());
 

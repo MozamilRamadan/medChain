@@ -25,34 +25,25 @@ class DashboardPage extends StatelessWidget {
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Sign Out'),
+        title: const Text('Log Out'),
         content: const Text(
-          'Are you sure you want to sign out of MedChain?',
+          'Are you sure you want to log out of MedChain?',
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop(false);
-            },
+            onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop(true);
-            },
-            child: const Text('Sign Out'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Log Out'),
           ),
         ],
       ),
     );
 
-    if (shouldLogout != true || !context.mounted) {
-      return;
-    }
+    if (shouldLogout != true || !context.mounted) return;
 
-    // Remove the dashboard and all previous pages from navigation.
-    // The user returns to the login page and cannot go back to
-    // the dashboard using the back button.
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
         builder: (_) => const LoginPage(),
@@ -61,17 +52,26 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
+  void _openProfile(BuildContext context) {
+    // Connect this menu item to ProfilePage when that page is added.
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Profile page will be available soon.'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final patientRole = account.roles.cast<AccountRole?>().firstWhere(
-          (role) => role?.role == 'patient',
-          orElse: () => null,
-        );
+      (role) => role?.role == 'patient',
+      orElse: () => null,
+    );
 
     final doctorRole = account.roles.cast<AccountRole?>().firstWhere(
-          (role) => role?.role == 'doctor',
-          orElse: () => null,
-        );
+      (role) => role?.role == 'doctor',
+      orElse: () => null,
+    );
 
     final isAdmin = account.roles.any(
       (role) => role.role.toLowerCase() == 'admin',
@@ -83,15 +83,51 @@ class DashboardPage extends StatelessWidget {
         title: const Text('MedChain'),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Sign Out',
-            onPressed: () => _logout(context),
+          PopupMenuButton<String>(
+            tooltip: 'Account menu',
+            icon: const Icon(Icons.account_circle_outlined),
+            onSelected: (value) {
+              if (value == 'profile') {
+                _openProfile(context);
+              } else if (value == 'logout') {
+                _logout(context);
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem<String>(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    const Icon(Icons.person_outline),
+                    const SizedBox(width: 12),
+                    const Text('My Profile'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              PopupMenuItem<String>(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.logout,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Log Out',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(width: 8),
         ],
       ),
-
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -100,7 +136,6 @@ class DashboardPage extends StatelessWidget {
             children: [
               const SizedBox(height: 20),
 
-              // MedChain logo
               Center(
                 child: Image.asset(
                   'assets/images/icon_bg.jpg',
@@ -112,7 +147,6 @@ class DashboardPage extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              // Welcome message
               Text(
                 'Welcome, ${account.fullName}',
                 textAlign: TextAlign.center,
@@ -124,7 +158,6 @@ class DashboardPage extends StatelessWidget {
 
               const SizedBox(height: 8),
 
-              // Display the account roles
               Text(
                 account.roles
                     .map((role) => role.role)
@@ -140,14 +173,12 @@ class DashboardPage extends StatelessWidget {
 
               const SizedBox(height: 30),
 
-              // PATIENT SECTION
               if (patientRole != null) ...[
                 _buildSectionTitle(
                   context,
                   'Patient',
                   Icons.person_outline,
                 ),
-
                 const SizedBox(height: 12),
 
                 AppButton(
@@ -186,17 +217,14 @@ class DashboardPage extends StatelessWidget {
                 ),
               ],
 
-              // DOCTOR SECTION
               if (doctorRole != null) ...[
-                if (patientRole != null)
-                  const SizedBox(height: 28),
+                if (patientRole != null) const SizedBox(height: 28),
 
                 _buildSectionTitle(
                   context,
                   'Doctor',
                   Icons.medical_services_outlined,
                 ),
-
                 const SizedBox(height: 12),
 
                 AppButton(
@@ -249,7 +277,6 @@ class DashboardPage extends StatelessWidget {
                 ),
               ],
 
-              // ADMIN SECTION
               if (isAdmin) ...[
                 const SizedBox(height: 28),
 
@@ -258,7 +285,6 @@ class DashboardPage extends StatelessWidget {
                   'Administrator',
                   Icons.admin_panel_settings_outlined,
                 ),
-
                 const SizedBox(height: 12),
 
                 ListTile(
@@ -296,9 +322,7 @@ class DashboardPage extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => AdminUsersPage(
-                          token: token,
-                        ),
+                        builder: (_) => AdminUsersPage(token: token),
                       ),
                     );
                   },

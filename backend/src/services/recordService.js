@@ -1,7 +1,7 @@
 
 const { sql, getPool } = require('../config/db');
 
-// Check whether doctor has approved permission.
+// Check whether doctor has approved permission
 async function checkDoctorPermission(patientId, doctorId) {
     const pool = getPool();
 
@@ -11,7 +11,7 @@ async function checkDoctorPermission(patientId, doctorId) {
         .input('DoctorId', sql.Int, doctorId)
         .query(`
             SELECT PermissionId
-            FROM dbo.Permissions
+            FROM Permissions
             WHERE PatientId = @PatientId
               AND DoctorId = @DoctorId
               AND Status = 'approved'
@@ -20,7 +20,7 @@ async function checkDoctorPermission(patientId, doctorId) {
     return result.recordset.length > 0;
 }
 
-// Save medical record in SQL Server.
+// Save medical record in SQL Server
 async function saveMedicalRecord({
     patientId,
     doctorId,
@@ -44,7 +44,7 @@ async function saveMedicalRecord({
             blockchainRecordId || null
         )
         .query(`
-            INSERT INTO dbo.MedicalRecords
+            INSERT INTO MedicalRecords
             (
                 PatientId,
                 DoctorId,
@@ -76,7 +76,7 @@ async function saveMedicalRecord({
     return result.recordset[0];
 }
 
-// Get patient's medical records.
+// Get patient's records from SQL Server
 async function getPatientRecords(patientId) {
     const pool = getPool();
 
@@ -93,26 +93,34 @@ async function getPatientRecords(patientId) {
                 r.IpfsCID,
                 r.BlockchainRecordId,
                 r.CreatedAt,
+
                 u.FullName AS DoctorName,
+                u.ProfileImagePath AS DoctorProfileImagePath,
                 d.Specialization
-            FROM dbo.MedicalRecords AS r
-            INNER JOIN dbo.DoctorProfiles AS d
+
+            FROM MedicalRecords r
+
+            INNER JOIN DoctorProfiles d
                 ON r.DoctorId = d.DoctorId
-            INNER JOIN dbo.Users AS u
+
+            INNER JOIN Users u
                 ON d.UserId = u.UserId
+
             WHERE r.PatientId = @PatientId
+
             ORDER BY r.CreatedAt DESC
         `);
 
     return result.recordset;
 }
 
-// Get records for a doctor only while approved permission exists.
-async function getDoctorRecords({ doctorId, patientId }) {
-    const hasPermission = await checkDoctorPermission(
-        patientId,
-        doctorId
-    );
+// Get records for doctor after checking permission
+async function getDoctorRecords({
+    doctorId,
+    patientId
+}) {
+    const hasPermission =
+        await checkDoctorPermission(patientId, doctorId);
 
     if (!hasPermission) {
         throw new Error(
@@ -135,62 +143,31 @@ async function getDoctorRecords({ doctorId, patientId }) {
                 r.Notes,
                 r.IpfsCID,
                 r.BlockchainRecordId,
-                r.CreatedAt
-            FROM dbo.MedicalRecords AS r
+                r.CreatedAt,
+
+                pu.FullName AS PatientName,
+                pu.ProfileImagePath AS PatientProfileImagePath
+
+            FROM MedicalRecords r
+
+            INNER JOIN PatientProfiles pp
+                ON r.PatientId = pp.PatientId
+
+            INNER JOIN Users pu
+                ON pp.UserId = pu.UserId
+
             WHERE r.PatientId = @PatientId
               AND r.DoctorId = @DoctorId
+
             ORDER BY r.CreatedAt DESC
         `);
 
     return result.recordset;
 }
 
-// Delete a record only if the authenticated user is its patient
-// or the doctor who created it.
-async function deleteMedicalRecord({ recordId, userId }) {
-    const pool = getPool();
-
-    const result = await pool
-        .request()
-        .input('RecordId', sql.Int, recordId)
-        .input('UserId', sql.Int, userId)
-        .query(`
-            DELETE r
-            OUTPUT DELETED.RecordId
-            FROM dbo.MedicalRecords AS r
-            WHERE r.RecordId = @RecordId
-              AND (
-                  EXISTS (
-                      SELECT 1
-                      FROM dbo.PatientProfiles AS pp
-                      WHERE pp.PatientId = r.PatientId
-                        AND pp.UserId = @UserId
-                  )
-                  OR EXISTS (
-                      SELECT 1
-                      FROM dbo.DoctorProfiles AS dp
-                      WHERE dp.DoctorId = r.DoctorId
-                        AND dp.UserId = @UserId
-                  )
-              )
-        `);
-
-    if (result.recordset.length === 0) {
-        const error = new Error(
-            'Record not found or you do not have permission to delete it'
-        );
-
-        error.code = 'RECORD_NOT_FOUND_OR_FORBIDDEN';
-        throw error;
-    }
-
-    return result.recordset[0];
-}
-
 module.exports = {
     checkDoctorPermission,
     saveMedicalRecord,
     getPatientRecords,
-    getDoctorRecords,
-    deleteMedicalRecord
+    getDoctorRecords
 };
