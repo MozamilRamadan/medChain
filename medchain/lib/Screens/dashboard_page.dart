@@ -8,6 +8,7 @@ import 'package:medchen/Screens/doctor/request_permission_page.dart';
 import 'package:medchen/Screens/patient/medical_records_page.dart';
 import 'package:medchen/Screens/patient/permission_requests_page.dart';
 import 'package:medchen/Screens/login/login_page.dart';
+import 'package:medchen/Screens/profile_page.dart';
 import 'package:medchen/global/app_button.dart';
 import 'package:medchen/models/account.dart';
 
@@ -53,13 +54,13 @@ class DashboardPage extends StatelessWidget {
   }
 
   void _openProfile(BuildContext context) {
-    // Connect this menu item to ProfilePage when that page is added.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Profile page will be available soon.'),
-      ),
-    );
-  }
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ProfilePage(token: token),
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -85,7 +86,8 @@ class DashboardPage extends StatelessWidget {
         actions: [
           PopupMenuButton<String>(
             tooltip: 'Account menu',
-            icon: const Icon(Icons.account_circle_outlined),
+            iconSize: 38,
+            icon: const Icon(Icons.menu),
             onSelected: (value) {
               if (value == 'profile') {
                 _openProfile(context);
@@ -104,7 +106,7 @@ class DashboardPage extends StatelessWidget {
                   ],
                 ),
               ),
-              const PopupMenuDivider(),
+              const PopupMenuDivider(height: 10,),
               PopupMenuItem<String>(
                 value: 'logout',
                 child: Row(

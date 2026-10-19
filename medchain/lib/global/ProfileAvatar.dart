@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 class ProfileAvatar extends StatelessWidget {
   final String? imagePath;
   final double radius;
+  final double Size;
 
   // Backend server URL — defined once for all profile avatars.
   static const String serverBaseUrl = 'http://192.168.0.157:3000';
@@ -11,6 +12,7 @@ class ProfileAvatar extends StatelessWidget {
     super.key,
     required this.imagePath,
     this.radius = 24,
+    this.Size = 52,
   });
 
   String? _buildImageUrl() {
