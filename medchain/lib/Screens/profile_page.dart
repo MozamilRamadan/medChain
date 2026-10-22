@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:medchen/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
@@ -297,11 +298,13 @@ class _ProfilePageState extends State<ProfilePage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Profile'),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh profile',
+     appBar: AppBar(
+  title: Text(
+    AppLocalizations.of(context)!.profileTitle,
+  ),
+  actions: [
+    IconButton(
+      tooltip: AppLocalizations.of(context)!.refreshProfile,
             onPressed: _isLoading ? null : _loadProfile,
             icon: const Icon(Icons.refresh),
           ),

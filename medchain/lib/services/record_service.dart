@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 
 class RecordService {
   static const String baseUrl =
-      'http://192.168.0.157:3000/api';
+     'http://10.120.52.93:5000/api';
 
   Future<Map<String, dynamic>> addRecord({
     required int patientId,

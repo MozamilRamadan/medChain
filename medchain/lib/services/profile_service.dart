@@ -16,7 +16,7 @@ class ProfileAvatar extends StatelessWidget {
   });
 
   static const String _serverBaseUrl =
-      'http://192.168.0.157:3000';
+     'http://10.120.52.93:5000/api';
 
   String? _buildImageUrl() {
     final path = imagePath?.trim();

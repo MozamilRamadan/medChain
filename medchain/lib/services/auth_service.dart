@@ -10,7 +10,7 @@ class AuthService {
   // static const String baseUrl = 'http://10.0.2.2:3000/api';
 
   // هاتف حقيقي Redmi Note 8:
-  static const String baseUrl = 'http://192.168.0.157:3000/api';
+  static const String baseUrl = 'http://10.192.197.93:5000/api';
 
   static Future<Map<String, dynamic>> login({
     required String nationalId,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:medchen/l10n/app_localizations.dart';
 
 import '../../services/admin_service.dart';
 
@@ -68,7 +69,9 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+           child: Text(
+          AppLocalizations.of(context)!.cancel,
+           ),
           ),
           FilledButton(
             style: destructive
@@ -90,6 +93,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     Map<String, dynamic> user,
     bool currentlyAdmin,
   ) async {
+    final l10n = AppLocalizations.of(context)!;
     final userId = int.tryParse(
       user['UserId']?.toString() ?? '',
     );
@@ -98,22 +102,23 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
         user['FullName']?.toString() ?? 'this user';
 
     if (userId == null || userId <= 0) {
-      _showMessage('Invalid user ID');
+      _showMessage(l10n.invalidUserId);
       return;
     }
 
     final enable = !currentlyAdmin;
 
-    final confirmed = await _confirmAction(
-      title: enable
-          ? 'Grant administrator access?'
-          : 'Remove administrator access?',
-      message: enable
-          ? 'Grant $fullName permission to manage users?'
-          : 'Remove administrator permissions from $fullName?',
-      confirmText: enable ? 'Grant access' : 'Remove access',
-    );
-
+   final confirmed = await _confirmAction(
+  title: enable
+      ? l10n.grantAdminConfirmTitle
+      : l10n.removeAdminConfirmTitle,
+  message: enable
+      ? l10n.grantAdminConfirmMessage(fullName)
+      : l10n.removeAdminConfirmMessage(fullName),
+  confirmText: enable
+      ? l10n.grantAccess
+      : l10n.removeAccess,
+);
     if (!confirmed || !mounted) return;
 
     setState(() => _updatingUserIds.add(userId));
@@ -129,11 +134,11 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
 
       setState(_loadUsers);
 
-      _showMessage(
-        enable
-            ? 'Administrator access granted successfully'
-            : 'Administrator access removed successfully',
-      );
+     _showMessage(
+  enable
+      ? l10n.adminGrantedSuccess
+      : l10n.adminRemovedSuccess,
+);
     } catch (error) {
       _showMessage(
         error.toString().replaceFirst('Exception: ', ''),
@@ -149,29 +154,32 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     Map<String, dynamic> user, {
     required bool isPatient,
   }) async {
+    final l10n = AppLocalizations.of(context)!;
     final userId = int.tryParse(
       user['UserId']?.toString() ?? '',
     );
 
     if (userId == null || userId <= 0) {
-      _showMessage('Invalid user ID');
+     _showMessage(l10n.invalidUserId);
       return;
     }
 
     final fullName =
         user['FullName']?.toString() ?? 'this user';
 
-    final profileName = isPatient ? 'Patient' : 'Doctor';
+   final profileName = isPatient
+    ? l10n.patientProfile
+    : l10n.doctorProfile;
 
     final confirmed = await _confirmAction(
-      title: 'Remove $profileName Profile?',
-      message:
-          'Remove the $profileName profile for $fullName? '
-          'The user account will remain.',
-      confirmText: 'Remove Profile',
-      destructive: true,
-    );
-
+  title: l10n.removeProfileTitle(profileName),
+  message: l10n.removeProfileMessage(
+    profileName,
+    fullName,
+  ),
+  confirmText: l10n.removeProfile,
+  destructive: true,
+);
     if (!confirmed || !mounted) return;
 
     setState(() => _updatingUserIds.add(userId));
@@ -192,7 +200,9 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       if (!mounted) return;
 
       setState(_loadUsers);
-      _showMessage('$profileName profile removed successfully');
+    _showMessage(
+  l10n.profileRemovedSuccess(profileName),
+);
     } catch (error) {
       _showMessage(
         error.toString().replaceFirst('Exception: ', ''),
@@ -207,28 +217,25 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
   Future<void> _deleteAccount(
     Map<String, dynamic> user,
   ) async {
+    final l10n = AppLocalizations.of(context)!;
     final userId = int.tryParse(
       user['UserId']?.toString() ?? '',
     );
 
     if (userId == null || userId <= 0) {
-      _showMessage('Invalid user ID');
+     _showMessage(l10n.invalidUserId);
       return;
     }
 
     final fullName =
         user['FullName']?.toString() ?? 'this user';
 
-    final confirmed = await _confirmAction(
-      title: 'Delete Account Permanently?',
-      message:
-          'Delete the entire account belonging to $fullName, '
-          'including associated SQL database records? '
-          'This action cannot be undone. Copies already stored '
-          'on the blockchain or IPFS will remain.',
-      confirmText: 'Delete Account',
-      destructive: true,
-    );
+   final confirmed = await _confirmAction(
+  title: l10n.deleteAccountTitle,
+  message: l10n.deleteAccountMessage(fullName),
+  confirmText: l10n.deleteAccount,
+  destructive: true,
+);
 
     if (!confirmed || !mounted) return;
 
@@ -243,7 +250,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
       if (!mounted) return;
 
       setState(_loadUsers);
-      _showMessage('Account deleted successfully');
+      _showMessage(l10n.accountDeletedSuccess);
     } catch (error) {
       _showMessage(
         error.toString().replaceFirst('Exception: ', ''),
@@ -255,15 +262,17 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Manage Users'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            tooltip: 'Refresh users',
+ @override
+Widget build(BuildContext context) {
+  final l10n = AppLocalizations.of(context)!;
+
+  return Scaffold(
+   appBar: AppBar(
+  title: Text(l10n.adminUsersTitle),
+  centerTitle: true,
+  actions: [
+    IconButton(
+      tooltip: l10n.refreshUsers,
             icon: const Icon(Icons.refresh),
             onPressed: () {
               setState(_loadUsers);
@@ -303,7 +312,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                       onPressed: () {
                         setState(_loadUsers);
                       },
-                      child: const Text('Retry'),
+                      child: Text(l10n.retry),
                     ),
                   ],
                 ),
@@ -349,10 +358,10 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
           }).toList();
 
           if (users.isEmpty) {
-            return const Center(
-              child: Text('No users found.'),
-            );
-          }
+           return Center(
+           child: Text(l10n.noUsersFound),
+           );
+           }
 
           return Column(
             children: [
@@ -363,11 +372,10 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText:
-                        'Search name, national ID, or phone',
+                  hintText: l10n.searchUsersHint,
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: IconButton(
-                      tooltip: 'Clear search',
+                      tooltip: l10n.clearSearch,
                       icon: const Icon(Icons.clear),
                       onPressed: () {
                         _searchController.clear();
@@ -385,28 +393,28 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                 ),
                 child: DropdownButtonFormField<String>(
                   initialValue: _selectedRole,
-                  decoration: const InputDecoration(
-                    labelText: 'Filter by role',
-                    border: OutlineInputBorder(),
+                 decoration: InputDecoration(
+                 labelText: l10n.filterByRole,
+                 border: const OutlineInputBorder(),
+                 ),
+                  items: [
+                  DropdownMenuItem(
+                 value: 'All',
+                 child: Text(l10n.allUsers),
+                ),
+                  DropdownMenuItem(
+                 value: 'Patient',
+                 child: Text(l10n.patients),
                   ),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'All',
-                      child: Text('All users'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Patient',
-                      child: Text('Patients'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Doctor',
-                      child: Text('Doctors'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Admin',
-                      child: Text('Admins'),
-                    ),
-                  ],
+                 DropdownMenuItem(
+                 value: 'Doctor',
+                 child: Text(l10n.doctors),
+                 ),
+                 DropdownMenuItem(
+                 value: 'Admin',
+                 child: Text(l10n.admins),
+                ),
+                ],
                   onChanged: (value) {
                     if (value != null) {
                       setState(() => _selectedRole = value);
@@ -422,17 +430,21 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Showing ${filteredUsers.length} '
-                    'of ${users.length} users',
-                  ),
+                 l10n.showingUsers(
+                 filteredUsers.length.toString(),
+                 users.length.toString(),
+                 ),
+),
                 ),
               ),
-              Expanded(
-                child: filteredUsers.isEmpty
-                    ? const Center(
-                        child: Text('No matching users found.'),
-                      )
-                    : ListView.builder(
+             Expanded(
+  child: filteredUsers.isEmpty
+      ? Center(
+          child: Text(
+            AppLocalizations.of(context)!.noMatchingUsers,
+          ),
+        )
+      : ListView.builder(
                         padding: const EdgeInsets.all(12),
                         itemCount: filteredUsers.length,
                         itemBuilder: (context, index) {
@@ -451,12 +463,13 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
 
                           final isUpdating = userId != null &&
                               _updatingUserIds.contains(userId);
+final l10n = AppLocalizations.of(context)!;
 
-                          final roles = <String>[
-                            if (isPatient) 'Patient',
-                            if (isDoctor) 'Doctor',
-                            if (isAdmin) 'Admin',
-                          ];
+final roles = <String>[
+  if (isPatient) l10n.patientProfile,
+  if (isDoctor) l10n.doctorProfile,
+  if (isAdmin) l10n.administrator,
+];
 
                           return Card(
                             margin: const EdgeInsets.only(
@@ -479,7 +492,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                     ),
                                     title: Text(
                                       user['FullName']?.toString() ??
-                                          'Unknown',
+                                      AppLocalizations.of(context)!.unknownUser,
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -488,22 +501,26 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          'User ID: '
-                                          '${user['UserId'] ?? '-'}',
-                                        ),
-                                        Text(
-                                          'National ID: '
-                                          '${user['NationalId'] ?? '-'}',
-                                        ),
-                                        Text(
-                                          'Phone: '
-                                          '${user['Phone'] ?? '-'}',
-                                        ),
-                                        Text(
-                                          'Roles: '
-                                          '${roles.isEmpty ? 'None' : roles.join(', ')}',
-                                        ),
+                                       Text(
+  l10n.userIdLabel(
+    (user['UserId'] ?? '-').toString(),
+  ),
+),
+Text(
+  l10n.nationalIdLabel(
+    (user['NationalId'] ?? '-').toString(),
+  ),
+),
+Text(
+  l10n.phoneLabel(
+    (user['Phone'] ?? '-').toString(),
+  ),
+),
+Text(
+  l10n.rolesLabel(
+    roles.isEmpty ? l10n.none : roles.join(', '),
+  ),
+),
                                       ],
                                     ),
                                   ),
@@ -536,58 +553,68 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                                                   : Icons
                                                       .admin_panel_settings,
                                             ),
-                                      label: Text(
-                                        isUpdating
-                                            ? 'Processing...'
-                                            : isAdmin
-                                                ? 'Remove Admin Access'
-                                                : 'Grant Admin Access',
-                                      ),
+                                     label: Text(
+  isUpdating
+      ? AppLocalizations.of(context)!.processing
+      : isAdmin
+          ? AppLocalizations.of(context)!.removeAdminAccess
+          : AppLocalizations.of(context)!.grantAdminAccess,
+),
                                     ),
                                   ),
 
-                                  // Remove patient profile only.
-                                  if (isPatient)
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: OutlinedButton.icon(
-                                        onPressed:
-                                            isUpdating || userId == null
-                                                ? null
-                                                : () => _removeProfile(
-                                                      user,
-                                                      isPatient: true,
-                                                    ),
-                                        icon: const Icon(
-                                          Icons.person_remove,
-                                        ),
-                                        label: const Text(
-                                          'Remove Patient Profile',
-                                        ),
-                                      ),
-                                    ),
+                                 // Remove patient profile only.
+if (isPatient)
+  SizedBox(
+    width: double.infinity,
+    child: OutlinedButton.icon(
+      onPressed: isUpdating || userId == null
+          ? null
+          : () => _removeProfile(
+                user,
+                isPatient: true,
+              ),
+      icon: const Icon(Icons.person_remove),
+      label: Text(
+        '${l10n.removeProfile} ${l10n.patientProfile}',
+      ),
+    ),
+  ),
 
-                                  // Remove doctor profile only.
-                                  if (isDoctor)
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: OutlinedButton.icon(
-                                        onPressed:
-                                            isUpdating || userId == null
-                                                ? null
-                                                : () => _removeProfile(
-                                                      user,
-                                                      isPatient: false,
-                                                    ),
-                                        icon: const Icon(
-                                          Icons.medical_services_outlined,
-                                        ),
-                                        label: const Text(
-                                          'Remove Doctor Profile',
-                                        ),
-                                      ),
-                                    ),
+// Remove doctor profile only.
+if (isDoctor)
+  SizedBox(
+    width: double.infinity,
+    child: OutlinedButton.icon(
+      onPressed: isUpdating || userId == null
+          ? null
+          : () => _removeProfile(
+                user,
+                isPatient: false,
+              ),
+      icon: const Icon(
+        Icons.medical_services_outlined,
+      ),
+      label: Text(
+        '${l10n.removeProfile} ${l10n.doctorProfile}',
+      ),
+    ),
+  ),
 
+// Delete the entire user account.
+SizedBox(
+  width: double.infinity,
+  child: OutlinedButton.icon(
+    onPressed: isUpdating || userId == null
+        ? null
+        : () => _deleteAccount(user),
+    icon: const Icon(Icons.delete_forever),
+    label: Text(l10n.deleteAccount),
+    style: OutlinedButton.styleFrom(
+      foregroundColor: Colors.red,
+    ),
+  ),
+),
                                   // Delete the entire user account.
                                   SizedBox(
                                     width: double.infinity,

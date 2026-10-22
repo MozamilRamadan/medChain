@@ -1,0 +1,249 @@
+{
+  "appTitle": "MedChain",
+  "login": "Login",
+  "register": "Register",
+  "patient": "Patient",
+  "doctor": "Doctor",
+  "medicalRecords": "Medical Records",
+  "addRecord": "Add Medical Record",
+  "profile": "Profile",
+  "logout": "Logout",
+  "language": "Language",
+  "selectLanguage": "Select Language",
+  "arabic": "Arabic",
+  "english": "English",
+  "patientLogin": "Sign in As A Patient",
+  "doctorLogin": "Sign in As A Doctor",
+  "switchToEnglish": "العربية",
+  "switchToArabic": "English",
+  "loginAsDoctor": "Login as Doctor",
+  "loginAsPatient": "Login as Patient",
+  "enterInformation": "Enter your information",
+  "idNumber": "ID Number",
+  "password": "Password",
+  "pleaseEnterId": "Please enter your ID number",
+  "idTooShort": "ID number is too short",
+  "pleaseEnterPassword": "Please enter your password",
+  "passwordTooShort": "Password must be at least 6 characters",
+  "loggingIn": "Logging in...",
+  "createAccount": "Create Account",
+  "accountWrongRole": "This account is not registered as a {role}",
+  "doctorRole": "Doctor",
+  "patientRole": "Patient",
+  "welcomeUser": "Welcome, {name}",
+  "@welcomeUser": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmLogout": "Are you sure you want to log out of MedChain?",
+  "cancel": "Cancel",
+  "welcome": "Welcome, {name}",
+  "@welcome": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "patientSection": "Patient",
+  "doctorSection": "Doctor",
+  "administrator": "Administrator",
+  "myMedicalRecords": "My Medical Records",
+  "permissionRequests": "Permission Requests",
+  "myPatients": "My Patients",
+  "requestPatientAccess": "Request Patient Access",
+  "manageUsers": "Manage Users",
+  "manageUsersDescription": "View and manage registered users",
+  "loginAgainAdmin": "Please log in again to access administration.",
+  "adminUsersTitle": "Manage Users",
+  "refreshUsers": "Refresh users",
+  "retry": "Retry",
+  "noUsersFound": "No users found.",
+  "searchUsersHint": "Search name, national ID, or phone",
+  "clearSearch": "Clear search",
+  "filterByRole": "Filter by role",
+  "allUsers": "All users",
+  "patients": "Patients",
+  "doctors": "Doctors",
+  "admins": "Admins",
+  "showingUsers": "Showing {filtered} of {total} users",
+  "@showingUsers": {
+    "placeholders": {
+      "filtered": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "noMatchingUsers": "No matching users found.",
+  "unknownUser": "Unknown",
+  "userIdLabel": "User ID: {id}",
+  "@userIdLabel": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "nationalIdLabel": "National ID: {id}",
+  "@nationalIdLabel": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "phoneLabel": "Phone: {phone}",
+  "@phoneLabel": {
+    "placeholders": {
+      "phone": {
+        "type": "String"
+      }
+    }
+  },
+  "rolesLabel": "Roles: {roles}",
+  "@rolesLabel": {
+    "placeholders": {
+      "roles": {
+        "type": "String"
+      }
+    }
+  },
+  "none": "None",
+  "processing": "Processing...",
+  "grantAdminAccess": "Grant Admin Access",
+  "removeAdminAccess": "Remove Admin Access",
+  "grantAdminConfirmTitle": "Grant administrator access?",
+  "removeAdminConfirmTitle": "Remove administrator access?",
+  "grantAdminConfirmMessage": "Grant {name} permission to manage users?",
+  "@grantAdminConfirmMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "removeAdminConfirmMessage": "Remove administrator permissions from {name}?",
+  "@removeAdminConfirmMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "grantAccess": "Grant access",
+  "removeAccess": "Remove access",
+  "adminGrantedSuccess": "Administrator access granted successfully",
+  "adminRemovedSuccess": "Administrator access removed successfully",
+  "invalidUserId": "Invalid user ID",
+  "patientProfile": "Patient",
+  "doctorProfile": "Doctor",
+  "removeProfileTitle": "Remove {role} Profile?",
+  "@removeProfileTitle": {
+    "placeholders": {
+      "role": {
+        "type": "String"
+      }
+    }
+  },
+  "removeProfileMessage": "Remove the {role} profile for {name}? The user account will remain.",
+  "@removeProfileMessage": {
+    "placeholders": {
+      "role": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "removeProfile": "Remove Profile",
+  "profileRemovedSuccess": "{role} profile removed successfully",
+  "@profileRemovedSuccess": {
+    "placeholders": {
+      "role": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAccountTitle": "Delete Account Permanently?",
+  "deleteAccountMessage": "Delete the entire account belonging to {name}, including associated SQL database records? This action cannot be undone. Copies already stored on the blockchain or IPFS will remain.",
+  "@deleteAccountMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAccount": "Delete Account",
+  "accountDeletedSuccess": "Account deleted successfully",
+  "forgotPassword": "Forgot Password?",
+  "phoneTooShort": "Phone number is too short.",
+ "pleaseEnterPhone": "Please enter your phone number.",
+ "enterPhoneForReset": "Enter your phone number to reset your password.",
+ "phoneNumber": "Phone number",
+ "continueButton": "Continue",
+ "resetNotConnected": "Password recovery is not connected to the server yet.",
+ "phoneNumberTooShortMessage": "Phone number must contain at least 9 digits.",
+  
+ "profileTitle": "My Profile",
+ "refreshProfile": "Refresh profile",
+ "editProfile": "Edit Profile",
+ "loadProfileError": "Could not load your profile.",
+ "tryAgain": "Try Again",
+ "chooseProfilePicture": "Choose profile picture",
+ "newPictureSelected": "New picture selected",
+ "uploading": "Uploading...",
+ "savePicture": "Save Picture",
+ "profilePictureUpdated": "Profile picture updated successfully.",
+ "selectValidImage": "Please select a JPG, JPEG, or PNG image.",
+ "imageFileNotFound": "The selected image file could not be found.",
+ "imageSizeLimit": "Image size must not exceed 5 MB.",
+ "selectImageFirst": "Please select an image first.",
+ "allowedImageTypes": "Only JPG, JPEG, and PNG images are allowed.",
+ "imageSelectionFailed": "Could not select image: {error}",
+ "@imageSelectionFailed": {
+  "placeholders": {
+    "error": {
+      "type": "String"
+    }
+  }
+ },
+ "imageUploadFailed": "Image upload failed: {error}",
+  "@imageUploadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "personalInformation": "Personal Information",
+  "fullNameLabel": "Full Name",
+  "phoneNumberLabel": "Phone Number",
+  "nationalIdLabelProfile": "National ID",
+  "specializationLabel": "Specialization",
+  "licenseNumberLabel": "License Number",
+  "notAvailable": "Not available",
+  "fullNameRequired": "Full name is required",
+  "phoneNumberRequired": "Phone number is required",
+  "accountRoles": "Account Roles",
+  "noRolesAssigned": "No roles assigned",
+  "profileUpdatedSuccess": "Profile updated successfully.",
+  "uploadImageFailedStatus": "Image upload failed ({statusCode}).",
+  "@uploadImageFailedStatus": {
+    "placeholders": {
+      "statusCode": {
+        "type": "String"
+      }
+    }
+  },
+  "profileUpdateFailed": "Profile update failed.",
+  "profileSaveFailed": "Profile save failed.",
+  "saving": "Saving...",
+  "saveChanges": "Save Changes"
+}

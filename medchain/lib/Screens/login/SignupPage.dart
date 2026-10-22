@@ -72,7 +72,7 @@ final AuthService _authService = AuthService();
         context,
         MaterialPageRoute(
           builder: (_) => DashboardPage(
-            account: account,
+            account: account, onLanguageChanged: (Locale p1) {  },
           ),
         ),
       );

@@ -1,0 +1,252 @@
+{
+  "appTitle": "ميد تشين",
+  "login": "تسجيل الدخول",
+  "register": "إنشاء حساب",
+  "patient": "المريض",
+  "doctor": "الطبيب",
+  "medicalRecords": "السجلات الطبية",
+  "addRecord": "إضافة سجل طبي",
+  "profile": "الملف الشخصي",
+  "logout": "تسجيل الخروج",
+  "language": "اللغة",
+  "selectLanguage": "اختر اللغة",
+  "arabic": "العربية",
+  "english": "الإنجليزية",
+  "patientLogin": "تسجيل الدخول كمريض",
+  "doctorLogin": "تسجيل الدخول كطبيب",
+  "switchToEnglish": "التبديل إلى الإنجليزية",
+  "switchToArabic": "التبديل إلى العربية",
+  "loginAsDoctor": "تسجيل الدخول كطبيب",
+  "loginAsPatient": "تسجيل الدخول كمريض",
+  "enterInformation": "أدخل بياناتك",
+  "idNumber": "الرقم الوطني",
+  "password": "كلمة المرور",
+  "pleaseEnterId": "يرجى إدخال الرقم الوطني",
+  "idTooShort": "الرقم الوطني قصير جداً",
+  "pleaseEnterPassword": "يرجى إدخال كلمة المرور",
+  "passwordTooShort": "يجب ألا تقل كلمة المرور عن 6 أحرف",
+  "loggingIn": "جارٍ تسجيل الدخول...",
+  "createAccount": "إنشاء حساب",
+  "accountWrongRole": "هذا الحساب غير مسجل بصفة {role}",
+  "doctorRole": "طبيب",
+  "patientRole": "مريض",
+  "welcomeUser": "مرحباً، {name}",
+  "@welcomeUser": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmLogout": "هل أنت متأكد أنك تريد تسجيل الخروج من MedChain؟",
+  "cancel": "إلغاء",
+  "welcome": "مرحباً، {name}",
+  "@welcome": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "patientSection": "المريض",
+  "doctorSection": "الطبيب",
+  "administrator": "المدير",
+  "myMedicalRecords": "سجلاتي الطبية",
+  "permissionRequests": "طلبات الصلاحيات",
+  "myPatients": "مرضاي",
+  "requestPatientAccess": "طلب الوصول إلى بيانات المريض",
+  "manageUsers": "إدارة المستخدمين",
+  "manageUsersDescription": "عرض المستخدمين المسجلين وإدارتهم",
+  "loginAgainAdmin": "يرجى تسجيل الدخول مجدداً للوصول إلى الإدارة.",
+  "adminUsersTitle": "إدارة المستخدمين",
+  "refreshUsers": "تحديث المستخدمين",
+  "retry": "إعادة المحاولة",
+  "noUsersFound": "لم يتم العثور على مستخدمين.",
+  "searchUsersHint": "ابحث بالاسم أو الرقم الوطني أو الهاتف",
+  "clearSearch": "مسح البحث",
+  "filterByRole": "تصفية حسب الدور",
+  "allUsers": "جميع المستخدمين",
+  "patients": "المرضى",
+  "doctors": "الأطباء",
+  "admins": "المديرون",
+  "showingUsers": "عرض {filtered} من أصل {total} مستخدم",
+  "@showingUsers": {
+    "placeholders": {
+      "filtered": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "noMatchingUsers": "لا توجد مستخدمون مطابقون للبحث.",
+  "unknownUser": "غير معروف",
+  "userIdLabel": "رقم المستخدم: {id}",
+  "@userIdLabel": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "nationalIdLabel": "الرقم الوطني: {id}",
+  "@nationalIdLabel": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "phoneLabel": "الهاتف: {phone}",
+  "@phoneLabel": {
+    "placeholders": {
+      "phone": {
+        "type": "String"
+      }
+    }
+  },
+  "rolesLabel": "الأدوار: {roles}",
+  "@rolesLabel": {
+    "placeholders": {
+      "roles": {
+        "type": "String"
+      }
+    }
+  },
+  "none": "لا يوجد",
+  "processing": "جارٍ التنفيذ...",
+  "grantAdminAccess": "منح صلاحيات المدير",
+  "removeAdminAccess": "إزالة صلاحيات المدير",
+  "grantAdminConfirmTitle": "هل تريد منح صلاحيات المدير؟",
+  "removeAdminConfirmTitle": "هل تريد إزالة صلاحيات المدير؟",
+  "grantAdminConfirmMessage": "هل تريد منح {name} صلاحية إدارة المستخدمين؟",
+  "@grantAdminConfirmMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "removeAdminConfirmMessage": "هل تريد إزالة صلاحيات الإدارة من {name}؟",
+  "@removeAdminConfirmMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "grantAccess": "منح الصلاحية",
+  "removeAccess": "إزالة الصلاحية",
+  "adminGrantedSuccess": "تم منح صلاحيات المدير بنجاح",
+  "adminRemovedSuccess": "تمت إزالة صلاحيات المدير بنجاح",
+  "invalidUserId": "رقم المستخدم غير صالح",
+  "patientProfile": "المريض",
+  "doctorProfile": "الطبيب",
+  "removeProfileTitle": "إزالة ملف {role}؟",
+  "@removeProfileTitle": {
+    "placeholders": {
+      "role": {
+        "type": "String"
+      }
+    }
+  },
+  "removeProfileMessage": "هل تريد إزالة ملف {role} الخاص بالمستخدم {name}؟ سيظل حساب المستخدم موجوداً.",
+  "@removeProfileMessage": {
+    "placeholders": {
+      "role": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "removeProfile": "إزالة الملف",
+  "profileRemovedSuccess": "تمت إزالة ملف {role} بنجاح",
+  "@profileRemovedSuccess": {
+    "placeholders": {
+      "role": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAccountTitle": "حذف الحساب نهائياً؟",
+  "deleteAccountMessage": "هل تريد حذف حساب {name} بالكامل، بما في ذلك سجلات قاعدة بيانات SQL المرتبطة به؟ لا يمكن التراجع عن هذا الإجراء. ستظل النسخ المخزنة مسبقاً على البلوك تشين أو IPFS موجودة.",
+  "@deleteAccountMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteAccount": "حذف الحساب",
+  "accountDeletedSuccess": "تم حذف الحساب بنجاح",
+  "forgotPassword": "نسيت كلمة المرور؟",
+  "phoneTooShort": "رقم الهاتف قصير جدًا.",
+ "pleaseEnterPhone": "يرجى إدخال رقم الهاتف.",
+ "enterPhoneForReset": "أدخل رقم هاتفك لاستعادة كلمة المرور.",
+ "phoneNumber": "رقم الهاتف",
+ "continueButton": "متابعة",
+ "resetNotConnected": "استعادة كلمة المرور غير متصلة بالخادم حتى الآن.",
+ "phoneNumberTooShortMessage": "يجب أن يحتوي رقم الهاتف على 9 أرقام على الأقل.",
+  
+ "profileTitle": "ملفي الشخصي",
+ "refreshProfile": "تحديث الملف الشخصي",
+ "editProfile": "تعديل الملف الشخصي",
+ "loadProfileError": "تعذر تحميل ملفك الشخصي.",
+ "tryAgain": "حاول مرة أخرى",
+ "chooseProfilePicture": "اختيار الصورة الشخصية",
+ "newPictureSelected": "تم اختيار صورة جديدة",
+ "uploading": "جارٍ رفع الصورة...",
+ "savePicture": "حفظ الصورة",
+ "profilePictureUpdated": "تم تحديث الصورة الشخصية بنجاح.",
+ "selectValidImage": "يرجى اختيار صورة بصيغة JPG أو JPEG أو PNG.",
+ "imageFileNotFound": "تعذر العثور على ملف الصورة المحدد.",
+ "imageSizeLimit": "يجب ألا يتجاوز حجم الصورة 5 ميجابايت.",
+ "selectImageFirst": "يرجى اختيار صورة أولاً.",
+ "allowedImageTypes": "يُسمح فقط بالصور بصيغة JPG أو JPEG أو PNG.",
+ "imageSelectionFailed": "تعذر اختيار الصورة: {error}",
+ "@imageSelectionFailed": {
+  "placeholders": {
+    "error": {
+      "type": "String"
+    }
+  }
+ },
+ "imageUploadFailed": "فشل رفع الصورة: {error}",
+ "uploadImageFailedStatus": "فشل رفع الصورة (رمز الحالة: {statusCode}).",
+"@uploadImageFailedStatus": {
+  "placeholders": {
+    "statusCode": {
+      "type": "String"
+    }
+  }
+},
+"profileUpdateFailed": "فشل تحديث الملف الشخصي.",
+ "@imageUploadFailed": {
+  "placeholders": {
+    "error": {
+      "type": "String"
+    }
+  }
+ },
+ "personalInformation": "المعلومات الشخصية",
+ "fullNameLabel": "الاسم الكامل",
+ "phoneNumberLabel": "رقم الهاتف",
+ "nationalIdLabelProfile": "الرقم الوطني",
+ "specializationLabel": "التخصص",
+ "licenseNumberLabel": "رقم الترخيص",
+ "notAvailable": "غير متوفر",
+ "fullNameRequired": "الاسم الكامل مطلوب",
+ "phoneNumberRequired": "رقم الهاتف مطلوب",
+ "accountRoles": "أدوار الحساب",
+ "noRolesAssigned": "لم يتم تعيين أدوار",
+ "profileUpdatedSuccess": "تم تحديث الملف الشخصي بنجاح.",
+ "uploadImageFailedStatus": "فشل رفع الصورة (رمز الحالة: {statusCode}).",
+ "profileUpdateFailed": "فشل تحديث الملف الشخصي.",
+ "profileSaveFailed": "فشل حفظ الملف الشخصي.",
+ "saving": "جارٍ الحفظ...",
+ "saveChanges": "حفظ التغييرات"
+ 
+}
