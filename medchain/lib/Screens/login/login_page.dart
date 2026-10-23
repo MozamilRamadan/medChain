@@ -110,8 +110,9 @@ class LoginPage extends StatelessWidget {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const SubLoginPage(
+                                  builder: (_) => SubLoginPage(
                                     isDoctor: false,
+                                    onLanguageChanged: onLanguageChanged,
                                   ),
                                 ),
                               );
@@ -127,8 +128,9 @@ class LoginPage extends StatelessWidget {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => const SubLoginPage(
+                                  builder: (_) => SubLoginPage(
                                     isDoctor: true,
+                                    onLanguageChanged: onLanguageChanged,
                                   ),
                                 ),
                               );

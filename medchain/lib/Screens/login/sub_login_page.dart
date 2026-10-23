@@ -12,10 +12,13 @@ import '../../global/app_text_feild.dart';
 
 class SubLoginPage extends StatefulWidget {
   final bool isDoctor;
+  final Function(Locale) onLanguageChanged;
+
 
   const SubLoginPage({
     super.key,
     required this.isDoctor,
+    required this.onLanguageChanged,
   });
 
   @override
@@ -97,7 +100,8 @@ class _SubLoginPageState extends State<SubLoginPage> {
         MaterialPageRoute(
           builder: (_) => DashboardPage(
             account: account,
-            token: token, onLanguageChanged: (Locale p1) {  },
+            token: token, 
+            onLanguageChanged: widget.onLanguageChanged,
           ),
         ),
       );

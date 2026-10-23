@@ -15,7 +15,7 @@ class MedChainApp extends StatefulWidget {
 }
 
 class _MedChainAppState extends State<MedChainApp> {
-  Locale _locale = const Locale('ar');
+  Locale _locale =  Locale('ar');
 
   void changeLanguage(Locale locale) {
     if (_locale.languageCode == locale.languageCode) {
