@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 
 class PermissionService {
   static const String baseUrl =
-     'http://10.120.52.93:5000/api';
+     'http://10.192.197.93:5000/api';
 
   // ============================================================
   // Doctor -> Request permission
