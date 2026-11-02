@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 
 class RecordService {
   static const String baseUrl =
-      'http://192.168.0.157:3000/api';
+     'http://10.192.197.93:5000/api';
 
   Future<Map<String, dynamic>> addRecord({
     required int patientId,
@@ -53,20 +53,18 @@ class RecordService {
   }
 
   Future<List<dynamic>> getRecords(
-    int patientId,
-  ) async {
+    int patientId, {
+    required String token,
+  }) async {
     final url = '$baseUrl/records/$patientId';
 
     final response = await http.get(
       Uri.parse(url),
       headers: {
         'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
       },
     );
-
-    print('GET RECORDS URL: $url');
-    print('GET RECORDS STATUS: ${response.statusCode}');
-    print('GET RECORDS BODY: ${response.body}');
 
     if (response.body.trim().isEmpty) {
       throw Exception('Server returned empty response');
@@ -76,9 +74,12 @@ class RecordService {
 
     if (response.statusCode != 200) {
       throw Exception(
-        data['message'] ??
-            'Failed to load records',
+        data['message'] ?? 'Failed to load records',
       );
+    }
+
+    if (data['success'] != true) {
+      throw Exception('Failed to load records');
     }
 
     return data['records'] ?? [];
@@ -117,4 +118,31 @@ class RecordService {
 
     return data['records'] ?? [];
   }
+
+  
+  Future<void> deleteRecord({
+    required int recordId,
+    required String token,
+  }) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/records/$recordId'),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.body.trim().isEmpty) {
+      throw Exception('Server returned an empty response');
+    }
+
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode != 200 || data['success'] != true) {
+      throw Exception(
+        data['message'] ?? 'Failed to delete medical record',
+      );
+    }
+  }
+
 }

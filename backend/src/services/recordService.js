@@ -1,5 +1,5 @@
-const { sql, getPool } = require('../config/db');
 
+const { sql, getPool } = require('../config/db');
 
 // Check whether doctor has approved permission
 async function checkDoctorPermission(patientId, doctorId) {
@@ -19,7 +19,6 @@ async function checkDoctorPermission(patientId, doctorId) {
 
     return result.recordset.length > 0;
 }
-
 
 // Save medical record in SQL Server
 async function saveMedicalRecord({
@@ -77,7 +76,6 @@ async function saveMedicalRecord({
     return result.recordset[0];
 }
 
-
 // Get patient's records from SQL Server
 async function getPatientRecords(patientId) {
     const pool = getPool();
@@ -97,6 +95,7 @@ async function getPatientRecords(patientId) {
                 r.CreatedAt,
 
                 u.FullName AS DoctorName,
+                u.ProfileImagePath AS DoctorProfileImagePath,
                 d.Specialization
 
             FROM MedicalRecords r
@@ -115,17 +114,13 @@ async function getPatientRecords(patientId) {
     return result.recordset;
 }
 
-
 // Get records for doctor after checking permission
 async function getDoctorRecords({
     doctorId,
     patientId
 }) {
     const hasPermission =
-        await checkDoctorPermission(
-            patientId,
-            doctorId
-        );
+        await checkDoctorPermission(patientId, doctorId);
 
     if (!hasPermission) {
         throw new Error(
@@ -148,9 +143,18 @@ async function getDoctorRecords({
                 r.Notes,
                 r.IpfsCID,
                 r.BlockchainRecordId,
-                r.CreatedAt
+                r.CreatedAt,
+
+                pu.FullName AS PatientName,
+                pu.ProfileImagePath AS PatientProfileImagePath
 
             FROM MedicalRecords r
+
+            INNER JOIN PatientProfiles pp
+                ON r.PatientId = pp.PatientId
+
+            INNER JOIN Users pu
+                ON pp.UserId = pu.UserId
 
             WHERE r.PatientId = @PatientId
               AND r.DoctorId = @DoctorId
@@ -160,7 +164,6 @@ async function getDoctorRecords({
 
     return result.recordset;
 }
-
 
 module.exports = {
     checkDoctorPermission,

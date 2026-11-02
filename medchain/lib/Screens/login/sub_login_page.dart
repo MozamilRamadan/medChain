@@ -2,18 +2,23 @@ import 'package:flutter/material.dart';
 
 import 'package:medchen/Screens/dashboard_page.dart';
 import 'package:medchen/Screens/login/SignupPage.dart';
+import 'package:medchen/Screens/login/forgot_password_page.dart';
 import 'package:medchen/models/account.dart';
 import 'package:medchen/services/auth_service.dart';
+import 'package:medchen/l10n/app_localizations.dart';
 
 import '../../global/app_button.dart';
 import '../../global/app_text_feild.dart';
 
 class SubLoginPage extends StatefulWidget {
   final bool isDoctor;
+  final Function(Locale) onLanguageChanged;
+
 
   const SubLoginPage({
     super.key,
     required this.isDoctor,
+    required this.onLanguageChanged,
   });
 
   @override
@@ -37,7 +42,7 @@ class _SubLoginPageState extends State<SubLoginPage> {
     passwordController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -55,7 +60,7 @@ class _SubLoginPageState extends State<SubLoginPage> {
 
       final Account account = result['account'];
       final String token = result['token'];
-      
+
       debugPrint(
         'USER ROLES: ${account.roles.map((role) => role.role).toList()}',
       );
@@ -64,20 +69,23 @@ class _SubLoginPageState extends State<SubLoginPage> {
           .map((role) => role.role.toLowerCase())
           .toSet();
 
-      final isAdmin = roles.contains('admin');
       final requiredRole = widget.isDoctor ? 'doctor' : 'patient';
 
-      // الطبيب يحتاج دور doctor، والمريض يحتاج دور patient.
-      // امتلاك admin وحده لا يمنح دور doctor أو patient تلقائيًا.
       final hasRequiredRole = roles.contains(requiredRole);
 
       if (!hasRequiredRole) {
         if (!mounted) return;
 
+        final localizations = AppLocalizations.of(context)!;
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'This account is not registered as a $requiredRole',
+              localizations.accountWrongRole(
+                widget.isDoctor
+                    ? localizations.doctorRole
+                    : localizations.patientRole,
+              ),
             ),
           ),
         );
@@ -92,7 +100,8 @@ class _SubLoginPageState extends State<SubLoginPage> {
         MaterialPageRoute(
           builder: (_) => DashboardPage(
             account: account,
-            token: token,
+            token: token, 
+            onLanguageChanged: widget.onLanguageChanged,
           ),
         ),
       );
@@ -115,15 +124,21 @@ class _SubLoginPageState extends State<SubLoginPage> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
-    final role =
-        widget.isDoctor ? 'Doctor' : 'Patient';
+    final localizations = AppLocalizations.of(context)!;
+
+   final roleTitle = widget.isDoctor
+    ? localizations.loginAsDoctor
+    : localizations.loginAsPatient;
+
+    final pageTitle = widget.isDoctor
+        ? localizations.loginAsDoctor
+        : localizations.loginAsPatient;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Login as $role'),
+        title: Text(roleTitle),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -131,13 +146,11 @@ class _SubLoginPageState extends State<SubLoginPage> {
           child: Form(
             key: _formKey,
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(
                   height:
-                      MediaQuery.of(context).size.height *
-                          0.20,
+                      MediaQuery.of(context).size.height * 0.20,
                   child: Image.asset(
                     'assets/images/icon_bg.jpg',
                     fit: BoxFit.contain,
@@ -147,7 +160,7 @@ class _SubLoginPageState extends State<SubLoginPage> {
                 const SizedBox(height: 10),
 
                 Text(
-                  'Login as $role',
+                  pageTitle,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 28,
@@ -157,11 +170,11 @@ class _SubLoginPageState extends State<SubLoginPage> {
 
                 const SizedBox(height: 8),
 
-                const Text(
-                  'Enter your information',
+                Text(
+                  localizations.enterInformation,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
+                  style: const TextStyle(
+                    fontSize: 28,
                     color: Colors.grey,
                   ),
                 ),
@@ -170,16 +183,15 @@ class _SubLoginPageState extends State<SubLoginPage> {
 
                 AppTextField(
                   controller: idController,
-                  hintText: 'ID Number',
+                  hintText: localizations.idNumber,
                   icon: Icons.badge,
                   validator: (value) {
-                    if (value == null ||
-                        value.trim().isEmpty) {
-                      return 'Please enter your ID number';
+                    if (value == null || value.trim().isEmpty) {
+                      return localizations.pleaseEnterId;
                     }
 
                     if (value.trim().length < 4) {
-                      return 'ID number is too short';
+                      return localizations.idTooShort;
                     }
 
                     return null;
@@ -190,31 +202,60 @@ class _SubLoginPageState extends State<SubLoginPage> {
 
                 AppTextField(
                   controller: passwordController,
-                  hintText: 'Password',
+                  hintText: localizations.password,
                   icon: Icons.lock,
                   obscureText: true,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your password';
+                      return localizations.pleaseEnterPassword;
                     }
 
                     if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
+                      return localizations.passwordTooShort;
                     }
 
                     return null;
                   },
                 ),
 
-                const SizedBox(height: 25),
-
-                AppButton(
-                  text: isLoading
-                      ? 'Logging in...'
-                      : 'Login',
-                  icon: Icons.login,
-                  onPressed: isLoading ? () {} : _login,
+              // زر نسيت كلمة المرور
+Align(
+  alignment: Alignment.centerRight,
+  child: TextButton(
+    onPressed: isLoading
+        ? null
+        : () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ForgotPasswordPage(
+                  isDoctor: widget.isDoctor,
                 ),
+              ),
+            );
+          },
+    child: Text(
+      localizations.forgotPassword,
+      style: const TextStyle(
+        fontSize: 15,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+  ),
+),
+
+const SizedBox(height: 10),
+
+// زر تسجيل الدخول
+        AppButton(
+         text: isLoading
+        ? localizations.loggingIn
+        : localizations.login,
+        icon: Icons.login,
+        onPressed: isLoading ? () {} : _login,
+),
+
+const SizedBox(height: 15),
 
                 const SizedBox(height: 15),
 
@@ -226,16 +267,15 @@ class _SubLoginPageState extends State<SubLoginPage> {
                             context,
                             MaterialPageRoute(
                               builder: (_) => SignupPage(
-                                isDoctor:
-                                    widget.isDoctor,
+                                isDoctor: widget.isDoctor,
                               ),
                             ),
                           );
                         },
-                  child: const Center(
+                  child: Center(
                     child: Text(
-                      'Create Account',
-                      style: TextStyle(
+                      localizations.createAccount,
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),

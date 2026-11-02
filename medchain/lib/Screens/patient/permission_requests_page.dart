@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:medchen/global/ProfileAvatar.dart';
 
 import '../../services/permission_service.dart';
 
@@ -250,6 +251,9 @@ class _PermissionRequestsPageState
     final Color statusColor =
         _getStatusColor(status);
 
+    final String? doctorImagePath =
+    
+    permission['DoctorProfileImagePath']?.toString();
     return Container(
       margin: const EdgeInsets.only(bottom: 18),
       decoration: BoxDecoration(
@@ -271,22 +275,10 @@ class _PermissionRequestsPageState
           children: [
             // Doctor header
             Row(
-              children: [
-                Container(
-                  width: 58,
-                  height: 58,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF0F7F7),
-                    borderRadius:
-                        BorderRadius.circular(15),
-                  ),
-                  child: Image.asset(
-                    'assets/images/icon_bg.jpg',
-                    width: 50,
-                    height: 50,
-                    fit: BoxFit.contain,
-                  ),
-                ),
+              children: [ 
+                ProfileAvatar(
+                    imagePath: doctorImagePath,
+                    radius: 58,),
 
                 const SizedBox(width: 14),
 
@@ -363,9 +355,8 @@ class _PermissionRequestsPageState
               ],
             ),
 
-            // Actions only for pending
-            if (status.toLowerCase() ==
-                'pending') ...[
+            // Actions for pending requests
+            if (status.trim().toLowerCase() == 'pending') ...[
               const SizedBox(height: 20),
 
               const Text(
@@ -388,24 +379,14 @@ class _PermissionRequestsPageState
                           'approved',
                         );
                       },
-                      icon: const Icon(
-                        Icons.check,
-                        size: 20,
-                      ),
-                      label: const Text(
-                        'Approve',
-                      ),
+                      icon: const Icon(Icons.check, size: 20),
+                      label: const Text('Approve'),
                       style: ElevatedButton.styleFrom(
-                        padding:
-                            const EdgeInsets.symmetric(
+                        padding: const EdgeInsets.symmetric(
                           vertical: 13,
                         ),
-                        shape:
-                            RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(
-                            12,
-                          ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                     ),
@@ -421,70 +402,69 @@ class _PermissionRequestsPageState
                           'rejected',
                         );
                       },
-                      icon: const Icon(
-                        Icons.close,
-                        size: 20,
-                      ),
-                      label: const Text(
-                        'Reject',
-                      ),
-                      style:
-                          OutlinedButton.styleFrom(
-                        padding:
-                            const EdgeInsets.symmetric(
+                      icon: const Icon(Icons.close, size: 20),
+                      label: const Text('Reject'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red),
+                        padding: const EdgeInsets.symmetric(
                           vertical: 13,
                         ),
-                        shape:
-                            RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(
-                            12,
-                          ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                     ),
                   ),
                 ],
               ),
-            
-            if (status.toLowerCase() == 'approved')
-            
-              const SizedBox(height: 14),
-              TextButton.icon(
-                onPressed: () async {
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (dialogContext) => AlertDialog(
-                      title: const Text('Revoke Permission'),
-                      content: const Text(
-                        'Are you sure you want to revoke this doctor’s access?',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () =>
-                              Navigator.pop(dialogContext, false),
-                          child: const Text('Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: () =>
-                              Navigator.pop(dialogContext, true),
-                          child: const Text('Revoke'),
-                        ),
-                      ],
-                    ),
-                  );
-
-                  if (confirmed == true && mounted) {
-                    await revokePermission(
-                      int.parse(permission['PermissionId'].toString()),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.block),
-                label: const Text('Revoke Permission'),
-              ),
-            
             ],
+
+            // Action for approved permissions
+            if (status.trim().toLowerCase() == 'approved') ...[
+              const SizedBox(height: 14),
+
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (dialogContext) => AlertDialog(
+                        title: const Text('Revoke Permission'),
+                        content: const Text(
+                          'Are you sure you want to revoke this doctor’s access?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(dialogContext, false);
+                            },
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(dialogContext, true);
+                            },
+                            child: const Text('Revoke'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirmed == true && mounted) {
+                      await revokePermission(permissionId);
+                    }
+                  },
+                  icon: const Icon(Icons.block, color: Colors.red),
+                  label: const Text(
+                    'Revoke Permission',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
+              ),
+            ],
+
           ],
         ),
       ),

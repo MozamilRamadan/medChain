@@ -1,12 +1,20 @@
+
 import 'package:flutter/material.dart';
+import 'package:medchen/global/ProfileAvatar.dart';
+import 'package:medchen/services/medical_record_pdf_service.dart';
 import 'package:medchen/services/record_service.dart';
+import 'package:printing/printing.dart';
 
 class MedicalRecordsPage extends StatefulWidget {
   final int patientId;
+  final String patientName;
+  final String token;
 
   const MedicalRecordsPage({
     super.key,
     required this.patientId,
+    required this.patientName,
+    required this.token,
   });
 
   @override
@@ -17,7 +25,7 @@ class MedicalRecordsPage extends StatefulWidget {
 class _MedicalRecordsPageState
     extends State<MedicalRecordsPage> {
   List<dynamic> records = [];
-
+  bool isExporting = false;
   bool isLoading = true;
   String? errorMessage;
 
@@ -34,9 +42,10 @@ class _MedicalRecordsPageState
     });
 
     try {
-      final RecordService _recordService = RecordService();
-
-      final result = await _recordService.getRecords(widget.patientId,);
+      final result = await RecordService().getRecords(
+        widget.patientId,
+        token: widget.token,
+      );
 
       if (!mounted) return;
 
@@ -51,6 +60,79 @@ class _MedicalRecordsPageState
         errorMessage = e.toString();
         isLoading = false;
       });
+    }
+  }
+
+  Future<void> _deleteRecord(dynamic record) async {
+    final recordId = int.tryParse(
+      record['RecordId'].toString(),
+    );
+
+    if (recordId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid record ID'),
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete medical record?'),
+        content: const Text(
+          'This removes the record from SQL Server. '
+          'IPFS and blockchain copies are not deleted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await RecordService().deleteRecord(
+        recordId: recordId,
+        token: widget.token,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        records.removeWhere(
+          (item) =>
+              item['RecordId'].toString() ==
+              recordId.toString(),
+        );
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Medical record deleted'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceFirst('Exception: ', ''),
+          ),
+        ),
+      );
     }
   }
 
@@ -70,11 +152,57 @@ class _MedicalRecordsPageState
     }
   }
 
+  Future<void> _exportPdf({required bool share}) async {
+    if (records.isEmpty || isLoading || isExporting) {
+      return;
+    }
+
+    setState(() {
+      isExporting = true;
+    });
+
+    try {
+      final bytes = await MedicalRecordPdfService.generate(
+        patientId: widget.patientId,
+        patientName: widget.patientName,
+        records: records,
+      );
+
+      final filename =
+          'MedChain_Records_${widget.patientId}.pdf';
+
+      if (share) {
+        await Printing.sharePdf(
+          bytes: bytes,
+          filename: filename,
+        );
+      } else {
+        await Printing.layoutPdf(
+          name: filename,
+          onLayout: (_) async => bytes,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('PDF operation failed: $e'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isExporting = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F8FA),
-
       appBar: AppBar(
         elevation: 0,
         centerTitle: true,
@@ -86,12 +214,32 @@ class _MedicalRecordsPageState
         ),
         actions: [
           IconButton(
+            tooltip: 'Refresh records',
             onPressed: isLoading ? null : loadRecords,
             icon: const Icon(Icons.refresh),
           ),
+          IconButton(
+            tooltip: 'Save records as PDF',
+            onPressed: records.isEmpty ||
+                    isLoading ||
+                    isExporting
+                ? null
+                : () => _exportPdf(share: false),
+            icon: const Icon(
+              Icons.picture_as_pdf_outlined,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Share records',
+            onPressed: records.isEmpty ||
+                    isLoading ||
+                    isExporting
+                ? null
+                : () => _exportPdf(share: true),
+            icon: const Icon(Icons.share_outlined),
+          ),
         ],
       ),
-
       body: _buildBody(),
     );
   }
@@ -115,12 +263,7 @@ class _MedicalRecordsPageState
       onRefresh: loadRecords,
       child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
-          16,
-          20,
-          16,
-          30,
-        ),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 30),
         itemCount: records.length,
         itemBuilder: (context, index) {
           return _buildRecordCard(records[index]);
@@ -129,11 +272,16 @@ class _MedicalRecordsPageState
     );
   }
 
-  Widget _buildRecordCard(
-    dynamic record,
-  ) {
+  Widget _buildRecordCard(dynamic record) {
     final int recordId =
-        record['RecordId'] as int;
+        int.tryParse(record['RecordId'].toString()) ?? 0;
+
+    final int patientId =
+        int.tryParse(record['PatientId'].toString()) ??
+            widget.patientId;
+
+    final int doctorId =
+        int.tryParse(record['DoctorId'].toString()) ?? 0;
 
     final String diagnosis =
         record['Diagnosis']?.toString() ??
@@ -144,11 +292,12 @@ class _MedicalRecordsPageState
             'Unknown doctor';
 
     final String specialization =
-        record['Specialization']?.toString() ??
-            '';
+        record['Specialization']?.toString() ?? '';
 
-    final String createdAt =
-        formatDate(record['CreatedAt']);
+    final String doctorProfileImagePath =
+        record['DoctorProfileImagePath']?.toString() ?? '';
+
+    final String createdAt = formatDate(record['CreatedAt']);
 
     final String notes =
         record['Notes']?.toString() ?? '';
@@ -162,11 +311,9 @@ class _MedicalRecordsPageState
 
     return Container(
       margin: const EdgeInsets.only(bottom: 18),
-
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.06),
@@ -175,40 +322,21 @@ class _MedicalRecordsPageState
           ),
         ],
       ),
-
       child: Column(
         children: [
-          // ─────────────────────────────
           // Header
-          // ─────────────────────────────
-
           Padding(
             padding: const EdgeInsets.all(18),
-
             child: Row(
               children: [
-                Container(
-                  width: 54,
-                  height: 54,
-
-                  decoration: BoxDecoration(
-                    borderRadius:
-                        BorderRadius.circular(15),
-                    color: const Color(0xFFF0F7F7),
-                  ),
-
-                  child: Image.asset(
-                    'assets/images/icon_bg.jpg',
-                    fit: BoxFit.contain,
-                  ),
+                ProfileAvatar(
+                  imagePath: doctorProfileImagePath,
+                  radius: 27,
                 ),
-
                 const SizedBox(width: 14),
-
                 Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Medical Record',
@@ -217,9 +345,7 @@ class _MedicalRecordsPageState
                           color: Colors.grey.shade600,
                         ),
                       ),
-
                       const SizedBox(height: 3),
-
                       Text(
                         '#$recordId',
                         style: const TextStyle(
@@ -227,22 +353,28 @@ class _MedicalRecordsPageState
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      const SizedBox(height: 3),
+                      Text(
+                        doctorName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
                     vertical: 6,
                   ),
-
                   decoration: BoxDecoration(
                     color: const Color(0xFFE8F5E9),
-                    borderRadius:
-                        BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-
                   child: const Text(
                     'Recorded',
                     style: TextStyle(
@@ -262,33 +394,18 @@ class _MedicalRecordsPageState
             endIndent: 18,
           ),
 
-          // ─────────────────────────────
           // Diagnosis
-          // ─────────────────────────────
-
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              18,
-              18,
-              18,
-              10,
-            ),
-
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
             child: Container(
               width: double.infinity,
-
               padding: const EdgeInsets.all(15),
-
               decoration: BoxDecoration(
                 color: const Color(0xFFF7FAFC),
-                borderRadius:
-                    BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(14),
               ),
-
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Diagnosis',
@@ -298,9 +415,7 @@ class _MedicalRecordsPageState
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-
                   const SizedBox(height: 6),
-
                   Text(
                     diagnosis,
                     style: const TextStyle(
@@ -313,18 +428,9 @@ class _MedicalRecordsPageState
             ),
           ),
 
-          // ─────────────────────────────
-          // Doctor + Date
-          // ─────────────────────────────
-
+          // Doctor and date
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              18,
-              6,
-              18,
-              10,
-            ),
-
+            padding: const EdgeInsets.fromLTRB(18, 6, 18, 10),
             child: Row(
               children: [
                 Expanded(
@@ -334,9 +440,7 @@ class _MedicalRecordsPageState
                     value: doctorName,
                   ),
                 ),
-
                 const SizedBox(width: 12),
-
                 Expanded(
                   child: _infoItem(
                     icon: Icons.calendar_today_outlined,
@@ -350,12 +454,7 @@ class _MedicalRecordsPageState
 
           if (specialization.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                18,
-                0,
-                18,
-                10,
-              ),
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
               child: _infoItem(
                 icon: Icons.medical_information_outlined,
                 title: 'Specialization',
@@ -363,26 +462,14 @@ class _MedicalRecordsPageState
               ),
             ),
 
-          // ─────────────────────────────
           // Notes preview
-          // ─────────────────────────────
-
           if (notes.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                18,
-                4,
-                18,
-                14,
-              ),
-
+              padding: const EdgeInsets.fromLTRB(18, 4, 18, 14),
               child: Align(
                 alignment: Alignment.centerLeft,
-
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
-
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Medical Notes',
@@ -392,40 +479,31 @@ class _MedicalRecordsPageState
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-
                     const SizedBox(height: 5),
-
                     Text(
                       notes,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14,
-                      ),
+                      style: const TextStyle(fontSize: 14),
                     ),
                   ],
                 ),
               ),
             ),
 
-          // ─────────────────────────────
-          // View Details
-          // ─────────────────────────────
-
+          // View details
           InkWell(
             borderRadius: const BorderRadius.only(
               bottomLeft: Radius.circular(20),
               bottomRight: Radius.circular(20),
             ),
-
             onTap: () {
               _showRecordDetails(
                 recordId: recordId,
-                patientId:
-                    record['PatientId'] as int,
-                doctorId:
-                    record['DoctorId'] as int,
+                patientId: patientId,
+                doctorId: doctorId,
                 doctorName: doctorName,
+                doctorProfileImagePath: doctorProfileImagePath,
                 specialization: specialization,
                 diagnosis: diagnosis,
                 notes: notes,
@@ -434,30 +512,21 @@ class _MedicalRecordsPageState
                 blockchainId: blockchainId,
               );
             },
-
             child: Container(
               width: double.infinity,
-
               padding: const EdgeInsets.symmetric(
                 horizontal: 18,
                 vertical: 15,
               ),
-
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FBFC),
-                borderRadius:
-                    const BorderRadius.only(
-                  bottomLeft:
-                      Radius.circular(20),
-                  bottomRight:
-                      Radius.circular(20),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF8FBFC),
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
                 ),
               ),
-
               child: const Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.spaceBetween,
-
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     'View Details',
@@ -466,12 +535,30 @@ class _MedicalRecordsPageState
                       fontSize: 14,
                     ),
                   ),
-
                   Icon(
                     Icons.arrow_forward_ios,
                     size: 15,
                   ),
                 ],
+              ),
+            ),
+          ),
+
+          // Existing delete action
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 4, 18, 12),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => _deleteRecord(record),
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: Colors.red,
+                ),
+                label: const Text(
+                  'Delete record',
+                  style: TextStyle(color: Colors.red),
+                ),
               ),
             ),
           ),
@@ -487,12 +574,10 @@ class _MedicalRecordsPageState
   }) {
     return Container(
       padding: const EdgeInsets.all(12),
-
       decoration: BoxDecoration(
         color: const Color(0xFFF9FAFB),
         borderRadius: BorderRadius.circular(12),
       ),
-
       child: Row(
         children: [
           Icon(
@@ -500,14 +585,10 @@ class _MedicalRecordsPageState
             size: 20,
             color: Colors.grey.shade700,
           ),
-
           const SizedBox(width: 9),
-
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
@@ -516,9 +597,7 @@ class _MedicalRecordsPageState
                     color: Colors.grey.shade600,
                   ),
                 ),
-
                 const SizedBox(height: 3),
-
                 Text(
                   value,
                   maxLines: 2,
@@ -541,6 +620,7 @@ class _MedicalRecordsPageState
     required int patientId,
     required int doctorId,
     required String doctorName,
+    required String doctorProfileImagePath,
     required String specialization,
     required String diagnosis,
     required String notes,
@@ -552,56 +632,40 @@ class _MedicalRecordsPageState
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-
-      builder: (context) {
+      builder: (sheetContext) {
         return Container(
-          height:
-              MediaQuery.of(context).size.height * 0.78,
-
+          height: MediaQuery.of(sheetContext).size.height * 0.78,
           decoration: const BoxDecoration(
             color: Colors.white,
-
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(28),
               topRight: Radius.circular(28),
             ),
           ),
-
           child: SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(22),
-
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Center(
                     child: Container(
                       width: 45,
                       height: 5,
-
                       decoration: BoxDecoration(
                         color: Colors.grey.shade300,
-                        borderRadius:
-                            BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 22),
-
                   Row(
                     children: [
-                      Image.asset(
-                        'assets/images/icon_bg.jpg',
-                        width: 50,
-                        height: 50,
-                        fit: BoxFit.contain,
+                      ProfileAvatar(
+                        imagePath: doctorProfileImagePath,
+                        radius: 24,
                       ),
-
                       const SizedBox(width: 12),
-
                       Expanded(
                         child: Text(
                           'Medical Record #$recordId',
@@ -613,48 +677,27 @@ class _MedicalRecordsPageState
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 22),
-
                   Expanded(
                     child: SingleChildScrollView(
                       child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _detailSection(
                             'Patient',
                             'Patient ID: $patientId',
                           ),
-
                           _detailSection(
                             'Doctor',
                             '$doctorName\n'
-                            'Doctor ID: $doctorId'
-                            '${specialization.isNotEmpty ? '\n$specialization' : ''}',
+                                'Doctor ID: $doctorId'
+                                '${specialization.isNotEmpty ? '\n$specialization' : ''}',
                           ),
-
-                          _detailSection(
-                            'Diagnosis',
-                            diagnosis,
-                          ),
-
+                          _detailSection('Diagnosis', diagnosis),
                           if (notes.isNotEmpty)
-                            _detailSection(
-                              'Medical Notes',
-                              notes,
-                            ),
-
-                          _detailSection(
-                            'Created',
-                            createdAt,
-                          ),
-
-                          _detailSection(
-                            'IPFS CID',
-                            ipfsCID,
-                          ),
-
+                            _detailSection('Medical Notes', notes),
+                          _detailSection('Created', createdAt),
+                          _detailSection('IPFS CID', ipfsCID),
                           _detailSection(
                             'Blockchain Record',
                             blockchainId,
@@ -672,17 +715,11 @@ class _MedicalRecordsPageState
     );
   }
 
-  Widget _detailSection(
-    String title,
-    String value,
-  ) {
+  Widget _detailSection(String title, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
-
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
-
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
@@ -692,20 +729,14 @@ class _MedicalRecordsPageState
               fontWeight: FontWeight.w600,
             ),
           ),
-
           const SizedBox(height: 6),
-
           Container(
             width: double.infinity,
-
             padding: const EdgeInsets.all(13),
-
             decoration: BoxDecoration(
               color: const Color(0xFFF7F9FA),
-              borderRadius:
-                  BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(12),
             ),
-
             child: SelectableText(
               value,
               style: const TextStyle(
@@ -722,22 +753,16 @@ class _MedicalRecordsPageState
   Widget _buildEmpty() {
     return RefreshIndicator(
       onRefresh: loadRecords,
-
       child: ListView(
-        physics:
-            const AlwaysScrollableScrollPhysics(),
-
+        physics: const AlwaysScrollableScrollPhysics(),
         children: [
           const SizedBox(height: 170),
-
           Icon(
             Icons.folder_open_outlined,
             size: 75,
             color: Colors.grey.shade400,
           ),
-
           const SizedBox(height: 18),
-
           const Center(
             child: Text(
               'No Medical Records',
@@ -747,15 +772,11 @@ class _MedicalRecordsPageState
               ),
             ),
           ),
-
           const SizedBox(height: 8),
-
           Center(
             child: Text(
               'Your medical records will appear here.',
-              style: TextStyle(
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(color: Colors.grey.shade600),
             ),
           ),
         ],
@@ -767,19 +788,15 @@ class _MedicalRecordsPageState
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-
         child: Column(
           mainAxisSize: MainAxisSize.min,
-
           children: [
             Icon(
               Icons.error_outline,
               size: 65,
               color: Colors.red.shade300,
             ),
-
             const SizedBox(height: 15),
-
             const Text(
               'Could not load medical records',
               textAlign: TextAlign.center,
@@ -788,19 +805,13 @@ class _MedicalRecordsPageState
                 fontWeight: FontWeight.bold,
               ),
             ),
-
             const SizedBox(height: 8),
-
             Text(
               errorMessage ?? 'Unknown error',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey.shade600,
-              ),
+              style: TextStyle(color: Colors.grey.shade600),
             ),
-
             const SizedBox(height: 20),
-
             ElevatedButton.icon(
               onPressed: loadRecords,
               icon: const Icon(Icons.refresh),
