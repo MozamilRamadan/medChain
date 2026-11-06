@@ -1,346 +1,164 @@
+const { getPool } = require('../config/db');
 
-const { sql, getPool } = require('../config/db');
-
-// --------------------------------------------------
-// GET ALL USERS
-// --------------------------------------------------
 async function getUsers(req, res) {
     try {
-        const pool = await getPool();
-
-        const result = await pool.request().query(`
+        const pool = getPool();
+        const result = await pool.query(`
             SELECT
-                u.UserId,
-                u.FullName,
-                u.Phone,
-                u.NationalId,
-                u.CreatedAt,
-
-                CAST(
-                    CASE WHEN EXISTS (
-                        SELECT 1
-                        FROM dbo.PatientProfiles pp
-                        WHERE pp.UserId = u.UserId
-                    )
-                    THEN 1 ELSE 0 END
-                AS bit) AS IsPatient,
-
-                CAST(
-                    CASE WHEN EXISTS (
-                        SELECT 1
-                        FROM dbo.DoctorProfiles dp
-                        WHERE dp.UserId = u.UserId
-                    )
-                    THEN 1 ELSE 0 END
-                AS bit) AS IsDoctor,
-
-                CAST(
-                    CASE WHEN EXISTS (
-                        SELECT 1
-                        FROM dbo.UserRoles ur
-                        WHERE ur.UserId = u.UserId
-                          AND ur.Role = N'admin'
-                    )
-                    THEN 1 ELSE 0 END
-                AS bit) AS IsAdmin
-
-            FROM dbo.Users u
-            ORDER BY u.UserId;
+                u."UserId", u."FullName", u."Phone", u."NationalId", u."CreatedAt",
+                EXISTS (SELECT 1 FROM "PatientProfiles" pp WHERE pp."UserId" = u."UserId") AS "IsPatient",
+                EXISTS (SELECT 1 FROM "DoctorProfiles" dp WHERE dp."UserId" = u."UserId") AS "IsDoctor",
+                EXISTS (
+                    SELECT 1 FROM "UserRoles" ur
+                    WHERE ur."UserId" = u."UserId" AND ur."Role" = 'admin'
+                ) AS "IsAdmin"
+            FROM "Users" u
+            ORDER BY u."UserId"
         `);
-
-        return res.json({
-            success: true,
-            count: result.recordset.length,
-            users: result.recordset
-        });
+        return res.json({ success: true, count: result.rowCount, users: result.rows });
     } catch (error) {
         console.error('Get users error:', error);
-
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to retrieve users'
-        });
+        return res.status(500).json({ success: false, message: 'Failed to retrieve users' });
     }
 }
 
-// --------------------------------------------------
-// GRANT OR REMOVE ADMIN ROLE
-// --------------------------------------------------
 async function setAdminRole(req, res) {
     const userId = Number(req.params.userId);
     const { enabled } = req.body;
 
     if (!Number.isSafeInteger(userId) || userId <= 0) {
-        return res.status(400).json({
-            success: false,
-            message: 'Invalid user ID'
-        });
+        return res.status(400).json({ success: false, message: 'Invalid user ID' });
     }
-
     if (typeof enabled !== 'boolean') {
-        return res.status(400).json({
-            success: false,
-            message: 'The enabled field must be true or false'
-        });
+        return res.status(400).json({ success: false, message: 'The enabled field must be true or false' });
     }
 
-    let transaction;
-    let transactionStarted = false;
+    const pool = getPool();
+    const client = await pool.connect();
 
     try {
-        const pool = await getPool();
-
-        transaction = new sql.Transaction(pool);
-
-        await transaction.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
-        transactionStarted = true;
-
-        const userResult = await transaction.request()
-            .input('UserId', sql.Int, userId)
-            .query(`
-                SELECT UserId
-                FROM dbo.Users WITH (UPDLOCK, HOLDLOCK)
-                WHERE UserId = @UserId;
-            `);
-
-        if (userResult.recordset.length === 0) {
-            await transaction.rollback();
-            transactionStarted = false;
-
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
+        await client.query('BEGIN');
+        const user = await client.query(
+            'SELECT "UserId" FROM "Users" WHERE "UserId" = $1 FOR UPDATE',
+            [userId]
+        );
+        if (!user.rowCount) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        const roleResult = await transaction.request()
-            .input('UserId', sql.Int, userId)
-            .query(`
-                SELECT UserRoleId
-                FROM dbo.UserRoles WITH (UPDLOCK, HOLDLOCK)
-                WHERE UserId = @UserId
-                  AND Role = N'admin';
-            `);
+        const role = await client.query(
+            `SELECT 1 FROM "UserRoles" WHERE "UserId" = $1 AND "Role" = 'admin'`,
+            [userId]
+        );
+        const alreadyAdmin = role.rowCount > 0;
 
-        const alreadyAdmin = roleResult.recordset.length > 0;
-
-        if (enabled && alreadyAdmin) {
-            await transaction.rollback();
-            transactionStarted = false;
-
+        if (enabled === alreadyAdmin) {
+            await client.query('ROLLBACK');
             return res.status(409).json({
                 success: false,
-                message: 'This user is already an administrator'
-            });
-        }
-
-        if (!enabled && !alreadyAdmin) {
-            await transaction.rollback();
-            transactionStarted = false;
-
-            return res.status(409).json({
-                success: false,
-                message: 'This user is not an administrator'
+                message: enabled ? 'This user is already an administrator' : 'This user is not an administrator'
             });
         }
 
         if (enabled) {
-            await transaction.request()
-                .input('UserId', sql.Int, userId)
-                .query(`
-                    INSERT INTO dbo.UserRoles (UserId, Role)
-                    VALUES (@UserId, N'admin');
-                `);
+            await client.query(
+                `INSERT INTO "UserRoles" ("UserId", "Role") VALUES ($1, 'admin')`,
+                [userId]
+            );
         } else {
-            const adminCountResult = await transaction.request().query(`
-                SELECT COUNT(DISTINCT UserId) AS AdminCount
-                FROM dbo.UserRoles WITH (UPDLOCK, HOLDLOCK)
-                WHERE Role = N'admin';
-            `);
-
-            const adminCount =
-                adminCountResult.recordset[0].AdminCount;
-
-            if (adminCount <= 1) {
-                await transaction.rollback();
-                transactionStarted = false;
-
-                return res.status(409).json({
-                    success: false,
-                    message: 'Cannot remove the last administrator'
-                });
+            const count = await client.query(
+                `SELECT COUNT(DISTINCT "UserId")::int AS "AdminCount"
+                 FROM "UserRoles" WHERE "Role" = 'admin'`
+            );
+            if (count.rows[0].AdminCount <= 1) {
+                await client.query('ROLLBACK');
+                return res.status(409).json({ success: false, message: 'Cannot remove the last administrator' });
             }
-
-            await transaction.request()
-                .input('UserId', sql.Int, userId)
-                .query(`
-                    DELETE FROM dbo.UserRoles
-                    WHERE UserId = @UserId
-                      AND Role = N'admin';
-                `);
+            await client.query(
+                `DELETE FROM "UserRoles" WHERE "UserId" = $1 AND "Role" = 'admin'`,
+                [userId]
+            );
         }
 
-        await transaction.commit();
-        transactionStarted = false;
-
+        await client.query('COMMIT');
         return res.json({
             success: true,
-            message: enabled
-                ? 'Administrator role granted successfully'
-                : 'Administrator role removed successfully'
+            message: enabled ? 'Administrator role granted successfully' : 'Administrator role removed successfully'
         });
     } catch (error) {
-        if (transactionStarted) {
-            try {
-                await transaction.rollback();
-            } catch (rollbackError) {
-                console.error('Admin-role rollback error:', rollbackError);
-            }
-        }
-
+        await client.query('ROLLBACK');
         console.error('Set admin role error:', error);
-
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to update administrator role'
-        });
+        return res.status(500).json({ success: false, message: 'Failed to update administrator role' });
+    } finally {
+        client.release();
     }
 }
 
-// --------------------------------------------------
-// REMOVE PATIENT OR DOCTOR PROFILE
-// --------------------------------------------------
 async function removeProfile(req, res, profileType) {
     const userId = Number(req.params.userId);
-
     if (!Number.isSafeInteger(userId) || userId <= 0) {
-        return res.status(400).json({
-            success: false,
-            message: 'Invalid user ID'
-        });
+        return res.status(400).json({ success: false, message: 'Invalid user ID' });
     }
 
     const isPatient = profileType === 'patient';
+    const profileTable = isPatient ? '"PatientProfiles"' : '"DoctorProfiles"';
+    const profileIdColumn = isPatient ? '"PatientId"' : '"DoctorId"';
+    const recordColumn = isPatient ? '"PatientId"' : '"DoctorId"';
+    const label = isPatient ? 'patient' : 'doctor';
 
-    const profileTable = isPatient
-        ? 'dbo.PatientProfiles'
-        : 'dbo.DoctorProfiles';
-
-    const profileIdColumn = isPatient
-        ? 'PatientId'
-        : 'DoctorId';
-
-    const recordProfileColumn = isPatient
-        ? 'PatientId'
-        : 'DoctorId';
-
-    const profileName = isPatient ? 'patient' : 'doctor';
-
-    let transaction;
-    let transactionStarted = false;
+    const pool = getPool();
+    const client = await pool.connect();
 
     try {
-        const pool = await getPool();
-
-        transaction = new sql.Transaction(pool);
-
-        await transaction.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
-        transactionStarted = true;
-
-        const userResult = await transaction.request()
-            .input('UserId', sql.Int, userId)
-            .query(`
-                SELECT UserId
-                FROM dbo.Users WITH (UPDLOCK, HOLDLOCK)
-                WHERE UserId = @UserId;
-            `);
-
-        if (userResult.recordset.length === 0) {
-            await transaction.rollback();
-            transactionStarted = false;
-
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
+        await client.query('BEGIN');
+        const user = await client.query(
+            'SELECT "UserId" FROM "Users" WHERE "UserId" = $1 FOR UPDATE',
+            [userId]
+        );
+        if (!user.rowCount) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        const profileResult = await transaction.request()
-            .input('UserId', sql.Int, userId)
-            .query(`
-                SELECT ${profileIdColumn} AS ProfileId
-                FROM ${profileTable} WITH (UPDLOCK, HOLDLOCK)
-                WHERE UserId = @UserId;
-            `);
-
-        if (profileResult.recordset.length === 0) {
-            await transaction.rollback();
-            transactionStarted = false;
-
-            return res.status(404).json({
-                success: false,
-                message: `This user does not have a ${profileName} profile`
-            });
+        const profile = await client.query(
+            `SELECT ${profileIdColumn} AS "ProfileId"
+             FROM ${profileTable} WHERE "UserId" = $1 FOR UPDATE`,
+            [userId]
+        );
+        if (!profile.rowCount) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, message: `This user does not have a ${label} profile` });
         }
 
-        const profileId = profileResult.recordset[0].ProfileId;
-
-        const recordsResult = await transaction.request()
-            .input('ProfileId', sql.Int, profileId)
-            .query(`
-                SELECT TOP (1) RecordId
-                FROM dbo.MedicalRecords WITH (UPDLOCK, HOLDLOCK)
-                WHERE ${recordProfileColumn} = @ProfileId;
-            `);
-
-        if (recordsResult.recordset.length > 0) {
-            await transaction.rollback();
-            transactionStarted = false;
-
+        const profileId = profile.rows[0].ProfileId;
+        const records = await client.query(
+            `SELECT 1 FROM "MedicalRecords" WHERE ${recordColumn} = $1 LIMIT 1`,
+            [profileId]
+        );
+        if (records.rowCount) {
+            await client.query('ROLLBACK');
             return res.status(409).json({
                 success: false,
-                message:
-                    `Cannot remove this ${profileName} profile because medical records depend on it. Delete the entire account if that is intended.`
+                message: `Cannot remove this ${label} profile because medical records depend on it.`
             });
         }
 
-        // Remove permission relationships before the profile.
-        await transaction.request()
-            .input('ProfileId', sql.Int, profileId)
-            .query(`
-                DELETE FROM dbo.Permissions
-                WHERE ${recordProfileColumn} = @ProfileId;
-            `);
-
-        await transaction.request()
-            .input('UserId', sql.Int, userId)
-            .query(`
-                DELETE FROM ${profileTable}
-                WHERE UserId = @UserId;
-            `);
-
-        await transaction.commit();
-        transactionStarted = false;
-
-        return res.json({
-            success: true,
-            message: `${profileName.charAt(0).toUpperCase() + profileName.slice(1)} profile removed successfully`
-        });
-    } catch (error) {
-        if (transactionStarted) {
-            try {
-                await transaction.rollback();
-            } catch (rollbackError) {
-                console.error('Profile-removal rollback error:', rollbackError);
-            }
+        if (isPatient) {
+            await client.query('DELETE FROM "Permissions" WHERE "PatientId" = $1', [profileId]);
+        } else {
+            await client.query('DELETE FROM "Permissions" WHERE "DoctorId" = $1', [profileId]);
         }
 
-        console.error(`Remove ${profileName} profile error:`, error);
-
-        return res.status(500).json({
-            success: false,
-            message: `Failed to remove ${profileName} profile`
-        });
+        await client.query(`DELETE FROM ${profileTable} WHERE "UserId" = $1`, [userId]);
+        await client.query('COMMIT');
+        return res.json({ success: true, message: `${label} profile removed successfully` });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error(`Remove ${label} profile error:`, error);
+        return res.status(500).json({ success: false, message: `Failed to remove ${label} profile` });
+    } finally {
+        client.release();
     }
 }
 
@@ -352,170 +170,73 @@ async function removeDoctorProfile(req, res) {
     return removeProfile(req, res, 'doctor');
 }
 
-// --------------------------------------------------
-// DELETE COMPLETE USER ACCOUNT
-// --------------------------------------------------
+// Destructive endpoint: calling it permanently deletes the selected user's related records.
 async function deleteUserAccount(req, res) {
     const userId = Number(req.params.userId);
     const currentUserId = req.user.userId;
 
     if (!Number.isSafeInteger(userId) || userId <= 0) {
-        return res.status(400).json({
-            success: false,
-            message: 'Invalid user ID'
-        });
+        return res.status(400).json({ success: false, message: 'Invalid user ID' });
     }
-
-    // Never allow an administrator to delete their own account here.
     if (userId === currentUserId) {
-        return res.status(403).json({
-            success: false,
-            message: 'You cannot delete your own account from the admin dashboard'
-        });
+        return res.status(403).json({ success: false, message: 'You cannot delete your own account from the admin dashboard' });
     }
 
-    let transaction;
-    let transactionStarted = false;
+    const pool = getPool();
+    const client = await pool.connect();
 
     try {
-        const pool = await getPool();
-
-        transaction = new sql.Transaction(pool);
-
-        await transaction.begin(sql.ISOLATION_LEVEL.SERIALIZABLE);
-        transactionStarted = true;
-
-        const userResult = await transaction.request()
-            .input('UserId', sql.Int, userId)
-            .query(`
-                SELECT UserId
-                FROM dbo.Users WITH (UPDLOCK, HOLDLOCK)
-                WHERE UserId = @UserId;
-            `);
-
-        if (userResult.recordset.length === 0) {
-            await transaction.rollback();
-            transactionStarted = false;
-
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
+        await client.query('BEGIN');
+        const user = await client.query(
+            'SELECT "UserId" FROM "Users" WHERE "UserId" = $1 FOR UPDATE',
+            [userId]
+        );
+        if (!user.rowCount) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        // If the target is an administrator, protect the last admin.
-        const targetAdminResult = await transaction.request()
-            .input('UserId', sql.Int, userId)
-            .query(`
-                SELECT UserRoleId
-                FROM dbo.UserRoles WITH (UPDLOCK, HOLDLOCK)
-                WHERE UserId = @UserId
-                  AND Role = N'admin';
-            `);
-
-        if (targetAdminResult.recordset.length > 0) {
-            const adminCountResult = await transaction.request().query(`
-                SELECT COUNT(DISTINCT UserId) AS AdminCount
-                FROM dbo.UserRoles WITH (UPDLOCK, HOLDLOCK)
-                WHERE Role = N'admin';
-            `);
-
-            if (adminCountResult.recordset[0].AdminCount <= 1) {
-                await transaction.rollback();
-                transactionStarted = false;
-
-                return res.status(409).json({
-                    success: false,
-                    message: 'Cannot delete the last administrator'
-                });
+        const targetAdmin = await client.query(
+            `SELECT 1 FROM "UserRoles" WHERE "UserId" = $1 AND "Role" = 'admin'`,
+            [userId]
+        );
+        if (targetAdmin.rowCount) {
+            const count = await client.query(
+                `SELECT COUNT(DISTINCT "UserId")::int AS "AdminCount"
+                 FROM "UserRoles" WHERE "Role" = 'admin'`
+            );
+            if (count.rows[0].AdminCount <= 1) {
+                await client.query('ROLLBACK');
+                return res.status(409).json({ success: false, message: 'Cannot delete the last administrator' });
             }
         }
 
-        // Remove permissions involving either profile owned by this user.
-        await transaction.request()
-            .input('UserId', sql.Int, userId)
-            .query(`
-                DELETE FROM dbo.Permissions
-                WHERE PatientId IN (
-                    SELECT PatientId
-                    FROM dbo.PatientProfiles
-                    WHERE UserId = @UserId
-                )
-                OR DoctorId IN (
-                    SELECT DoctorId
-                    FROM dbo.DoctorProfiles
-                    WHERE UserId = @UserId
-                );
-            `);
+        await client.query(
+            `DELETE FROM "Permissions"
+             WHERE "PatientId" IN (SELECT "PatientId" FROM "PatientProfiles" WHERE "UserId" = $1)
+                OR "DoctorId" IN (SELECT "DoctorId" FROM "DoctorProfiles" WHERE "UserId" = $1)`,
+            [userId]
+        );
 
-        // Delete SQL medical records involving this user's patient
-        // or doctor profile so the profile foreign keys are satisfied.
-        await transaction.request()
-            .input('UserId', sql.Int, userId)
-            .query(`
-                DELETE FROM dbo.MedicalRecords
-                WHERE PatientId IN (
-                    SELECT PatientId
-                    FROM dbo.PatientProfiles
-                    WHERE UserId = @UserId
-                )
-                OR DoctorId IN (
-                    SELECT DoctorId
-                    FROM dbo.DoctorProfiles
-                    WHERE UserId = @UserId
-                );
-            `);
+        await client.query(
+            `DELETE FROM "MedicalRecords"
+             WHERE "PatientId" IN (SELECT "PatientId" FROM "PatientProfiles" WHERE "UserId" = $1)
+                OR "DoctorId" IN (SELECT "DoctorId" FROM "DoctorProfiles" WHERE "UserId" = $1)`,
+            [userId]
+        );
+        await client.query('DELETE FROM "PatientProfiles" WHERE "UserId" = $1', [userId]);
+        await client.query('DELETE FROM "DoctorProfiles" WHERE "UserId" = $1', [userId]);
+        await client.query('DELETE FROM "UserRoles" WHERE "UserId" = $1', [userId]);
+        await client.query('DELETE FROM "Users" WHERE "UserId" = $1', [userId]);
 
-        await transaction.request()
-            .input('UserId', sql.Int, userId)
-            .query(`
-                DELETE FROM dbo.PatientProfiles
-                WHERE UserId = @UserId;
-            `);
-
-        await transaction.request()
-            .input('UserId', sql.Int, userId)
-            .query(`
-                DELETE FROM dbo.DoctorProfiles
-                WHERE UserId = @UserId;
-            `);
-
-        await transaction.request()
-            .input('UserId', sql.Int, userId)
-            .query(`
-                DELETE FROM dbo.UserRoles
-                WHERE UserId = @UserId;
-            `);
-
-        await transaction.request()
-            .input('UserId', sql.Int, userId)
-            .query(`
-                DELETE FROM dbo.Users
-                WHERE UserId = @UserId;
-            `);
-
-        await transaction.commit();
-        transactionStarted = false;
-
-        return res.json({
-            success: true,
-            message: 'User account and related SQL records deleted successfully'
-        });
+        await client.query('COMMIT');
+        return res.json({ success: true, message: 'User account and related records deleted successfully' });
     } catch (error) {
-        if (transactionStarted) {
-            try {
-                await transaction.rollback();
-            } catch (rollbackError) {
-                console.error('Account-deletion rollback error:', rollbackError);
-            }
-        }
-
+        await client.query('ROLLBACK');
         console.error('Delete user account error:', error);
-
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to delete user account'
-        });
+        return res.status(500).json({ success: false, message: 'Failed to delete user account' });
+    } finally {
+        client.release();
     }
 }
 

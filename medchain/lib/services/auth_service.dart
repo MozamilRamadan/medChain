@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-
+import '../config/api_config.dart';
 import '../models/account.dart';
 
 class AuthService {
@@ -10,7 +10,8 @@ class AuthService {
   // static const String baseUrl = 'http://192.168.56.1:5000/api';
 
   // هاتف حقيقي Redmi Note 8:
-  static const String baseUrl = 'http://192.168.0.157:3000/api';
+  //static const String baseUrl = 'http://192.168.0.157:3000/api';
+  static const String baseUrl = ApiConfig.baseUrl;
 
   static Future<Map<String, dynamic>> login({
     required String nationalId,

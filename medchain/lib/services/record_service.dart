@@ -1,9 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-
+import '../config/api_config.dart';
 class RecordService {
-  static const String baseUrl =
-     'http://10.192.197.93:5000/api';
+  static const String baseUrl =ApiConfig.baseUrl;
 
   Future<Map<String, dynamic>> addRecord({
     required int patientId,

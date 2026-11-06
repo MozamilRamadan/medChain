@@ -1,8 +1,7 @@
-
 require('dotenv').config();
 
 const bcrypt = require('bcrypt');
-const { sql, connectDB, getPool } = require('../src/config/db');
+const { connectDB, getPool, closeDB } = require('../src/config/db');
 
 async function seedAdmin() {
     const fullName = process.env.ADMIN_FULL_NAME?.trim();
@@ -15,88 +14,62 @@ async function seedAdmin() {
             'Set ADMIN_FULL_NAME, ADMIN_PHONE, ADMIN_NATIONAL_ID and ADMIN_PASSWORD in .env'
         );
     }
-
     if (password.length < 12) {
         throw new Error('ADMIN_PASSWORD must contain at least 12 characters.');
     }
 
     await connectDB();
-
     const pool = getPool();
-    const transaction = new sql.Transaction(pool);
+    const client = await pool.connect();
 
     try {
-        await transaction.begin();
+        await client.query('BEGIN');
 
-        const check = await transaction.request()
-            .input('NationalId', sql.NVarChar(30), nationalId)
-            .query(`
-                SELECT UserId
-                FROM dbo.Users
-                WHERE NationalId = @NationalId;
-            `);
+        const existing = await client.query(
+            'SELECT "UserId" FROM "Users" WHERE "NationalId" = $1',
+            [nationalId]
+        );
 
-        let userId;
+        if (existing.rowCount) {
+            const userId = existing.rows[0].UserId;
+            const admin = await client.query(
+                `SELECT 1 FROM "UserRoles"
+                 WHERE "UserId" = $1 AND "Role" = 'admin'`,
+                [userId]
+            );
 
-        if (check.recordset.length > 0) {
-            userId = check.recordset[0].UserId;
-
-            const existingAdmin = await transaction.request()
-                .input('UserId', sql.Int, userId)
-                .query(`
-                    SELECT UserRoleId
-                    FROM dbo.UserRoles
-                    WHERE UserId = @UserId
-                      AND Role = N'admin';
-                `);
-
-            if (existingAdmin.recordset.length === 0) {
+            if (!admin.rowCount) {
                 throw new Error(
-                    'This National ID already belongs to a non-admin account. ' +
-                    'Refusing to promote it automatically.'
+                    'This National ID belongs to a non-admin account. No role was changed.'
                 );
             }
 
+            await client.query('ROLLBACK');
             console.log('This account already has the admin role.');
-            await transaction.rollback();
             return;
         }
 
         const passwordHash = await bcrypt.hash(password, 12);
+        const inserted = await client.query(
+            `INSERT INTO "Users" ("FullName", "Phone", "NationalId", "PasswordHash")
+             VALUES ($1, $2, $3, $4) RETURNING "UserId"`,
+            [fullName, phone, nationalId, passwordHash]
+        );
 
-        const insertedUser = await transaction.request()
-            .input('FullName', sql.NVarChar(100), fullName)
-            .input('Phone', sql.NVarChar(20), phone)
-            .input('NationalId', sql.NVarChar(30), nationalId)
-            .input('PasswordHash', sql.NVarChar(255), passwordHash)
-            .query(`
-                INSERT INTO dbo.Users
-                    (FullName, Phone, NationalId, PasswordHash)
-                OUTPUT INSERTED.UserId
-                VALUES
-                    (@FullName, @Phone, @NationalId, @PasswordHash);
-            `);
+        const userId = inserted.rows[0].UserId;
+        await client.query(
+            `INSERT INTO "UserRoles" ("UserId", "Role")
+             VALUES ($1, 'admin')`,
+            [userId]
+        );
 
-        userId = insertedUser.recordset[0].UserId;
-
-        await transaction.request()
-            .input('UserId', sql.Int, userId)
-            .input('Role', sql.NVarChar(20), 'admin')
-            .query(`
-                INSERT INTO dbo.UserRoles (UserId, Role)
-                VALUES (@UserId, @Role);
-            `);
-
-        await transaction.commit();
-
-        console.log(`Admin account created successfully. UserId: ${userId}`);
+        await client.query('COMMIT');
+        console.log(`Admin account created. UserId: ${userId}`);
     } catch (error) {
-        try {
-            await transaction.rollback();
-        } catch (_) {
-            // The transaction may already have been rolled back.
-        }
+        await client.query('ROLLBACK');
         throw error;
+    } finally {
+        client.release();
     }
 }
 
@@ -106,5 +79,5 @@ seedAdmin()
         process.exitCode = 1;
     })
     .finally(async () => {
-        await sql.close().catch(() => {});
+        await closeDB();
     });

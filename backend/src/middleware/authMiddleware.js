@@ -1,12 +1,10 @@
-
 const jwt = require('jsonwebtoken');
-const { sql, getPool } = require('../config/db');
+const { getPool } = require('../config/db');
 
 async function requireAuth(req, res, next) {
     try {
         const authorization = req.headers.authorization;
-
-        if (!authorization || !authorization.startsWith('Bearer ')) {
+        if (!authorization?.startsWith('Bearer ')) {
             return res.status(401).json({
                 success: false,
                 message: 'Authentication token is required'
@@ -14,7 +12,6 @@ async function requireAuth(req, res, next) {
         }
 
         const token = authorization.slice(7).trim();
-
         if (!token) {
             return res.status(401).json({
                 success: false,
@@ -23,8 +20,6 @@ async function requireAuth(req, res, next) {
         }
 
         if (!process.env.JWT_SECRET) {
-            console.error('JWT_SECRET is not configured');
-
             return res.status(500).json({
                 success: false,
                 message: 'Server authentication is not configured'
@@ -32,7 +27,6 @@ async function requireAuth(req, res, next) {
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
         if (!Number.isInteger(decoded.userId)) {
             return res.status(401).json({
                 success: false,
@@ -40,17 +34,10 @@ async function requireAuth(req, res, next) {
             });
         }
 
-        req.user = {
-            userId: decoded.userId
-        };
-
-        next();
+        req.user = { userId: decoded.userId };
+        return next();
     } catch (error) {
-        if (
-            error.name === 'JsonWebTokenError' ||
-            error.name === 'TokenExpiredError' ||
-            error.name === 'NotBeforeError'
-        ) {
+        if (['JsonWebTokenError', 'TokenExpiredError', 'NotBeforeError'].includes(error.name)) {
             return res.status(401).json({
                 success: false,
                 message: 'Invalid or expired authentication token'
@@ -58,7 +45,6 @@ async function requireAuth(req, res, next) {
         }
 
         console.error('Authentication error:', error);
-
         return res.status(500).json({
             success: false,
             message: 'Authentication failed'
@@ -69,28 +55,23 @@ async function requireAuth(req, res, next) {
 async function requireAdmin(req, res, next) {
     try {
         const pool = getPool();
+        const result = await pool.query(
+            `SELECT 1 FROM "UserRoles"
+             WHERE "UserId" = $1 AND "Role" = 'admin'
+             LIMIT 1`,
+            [req.user.userId]
+        );
 
-        const result = await pool
-            .request()
-            .input('UserId', sql.Int, req.user.userId)
-            .query(`
-                SELECT TOP (1) UserRoleId
-                FROM dbo.UserRoles
-                WHERE UserId = @UserId
-                  AND Role = N'admin'
-            `);
-
-        if (result.recordset.length === 0) {
+        if (!result.rowCount) {
             return res.status(403).json({
                 success: false,
                 message: 'Administrator permission is required'
             });
         }
 
-        next();
+        return next();
     } catch (error) {
         console.error('Admin authorization error:', error);
-
         return res.status(500).json({
             success: false,
             message: 'Could not verify administrator permission'
@@ -98,7 +79,4 @@ async function requireAdmin(req, res, next) {
     }
 }
 
-module.exports = {
-    requireAuth,
-    requireAdmin
-};
+module.exports = { requireAuth, requireAdmin };
