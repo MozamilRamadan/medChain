@@ -1,6 +1,6 @@
 
 import 'package:flutter/material.dart';
-
+import '../config/api_config.dart';
 class ProfileAvatar extends StatelessWidget {
   final String? imagePath;
   final double size;
@@ -15,8 +15,7 @@ class ProfileAvatar extends StatelessWidget {
     this.fit = BoxFit.cover,
   });
 
-  static const String _serverBaseUrl =
-     'http://10.120.52.93:5000/api';
+  static const String _serverBaseUrl = ApiConfig.baseUrl;
 
   String? _buildImageUrl() {
     final path = imagePath?.trim();
