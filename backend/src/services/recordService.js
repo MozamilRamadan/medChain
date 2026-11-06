@@ -1,168 +1,69 @@
+const { getPool } = require('../config/db');
 
-const { sql, getPool } = require('../config/db');
-
-// Check whether doctor has approved permission
 async function checkDoctorPermission(patientId, doctorId) {
     const pool = getPool();
-
-    const result = await pool
-        .request()
-        .input('PatientId', sql.Int, patientId)
-        .input('DoctorId', sql.Int, doctorId)
-        .query(`
-            SELECT PermissionId
-            FROM Permissions
-            WHERE PatientId = @PatientId
-              AND DoctorId = @DoctorId
-              AND Status = 'approved'
-        `);
-
-    return result.recordset.length > 0;
+    const result = await pool.query(
+        `SELECT 1 FROM "Permissions"
+         WHERE "PatientId" = $1 AND "DoctorId" = $2 AND "Status" = 'approved'
+         LIMIT 1`,
+        [patientId, doctorId]
+    );
+    return result.rowCount > 0;
 }
 
-// Save medical record in SQL Server
 async function saveMedicalRecord({
-    patientId,
-    doctorId,
-    diagnosis,
-    notes,
-    ipfsCID,
-    blockchainRecordId
+    patientId, doctorId, diagnosis, notes, ipfsCID, blockchainRecordId
 }) {
     const pool = getPool();
-
-    const result = await pool
-        .request()
-        .input('PatientId', sql.Int, patientId)
-        .input('DoctorId', sql.Int, doctorId)
-        .input('Diagnosis', sql.NVarChar(500), diagnosis)
-        .input('Notes', sql.NVarChar(sql.MAX), notes || null)
-        .input('IpfsCID', sql.NVarChar(100), ipfsCID || null)
-        .input(
-            'BlockchainRecordId',
-            sql.NVarChar(100),
-            blockchainRecordId || null
-        )
-        .query(`
-            INSERT INTO MedicalRecords
-            (
-                PatientId,
-                DoctorId,
-                Diagnosis,
-                Notes,
-                IpfsCID,
-                BlockchainRecordId
-            )
-            OUTPUT
-                INSERTED.RecordId,
-                INSERTED.PatientId,
-                INSERTED.DoctorId,
-                INSERTED.Diagnosis,
-                INSERTED.Notes,
-                INSERTED.IpfsCID,
-                INSERTED.BlockchainRecordId,
-                INSERTED.CreatedAt
-            VALUES
-            (
-                @PatientId,
-                @DoctorId,
-                @Diagnosis,
-                @Notes,
-                @IpfsCID,
-                @BlockchainRecordId
-            )
-        `);
-
-    return result.recordset[0];
+    const result = await pool.query(
+        `INSERT INTO "MedicalRecords"
+            ("PatientId", "DoctorId", "Diagnosis", "Notes", "IpfsCID", "BlockchainRecordId")
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING "RecordId", "PatientId", "DoctorId", "Diagnosis",
+                   "Notes", "IpfsCID", "BlockchainRecordId", "CreatedAt"`,
+        [patientId, doctorId, diagnosis, notes || null, ipfsCID || null, blockchainRecordId || null]
+    );
+    return result.rows[0];
 }
 
-// Get patient's records from SQL Server
 async function getPatientRecords(patientId) {
     const pool = getPool();
-
-    const result = await pool
-        .request()
-        .input('PatientId', sql.Int, patientId)
-        .query(`
-            SELECT
-                r.RecordId,
-                r.PatientId,
-                r.DoctorId,
-                r.Diagnosis,
-                r.Notes,
-                r.IpfsCID,
-                r.BlockchainRecordId,
-                r.CreatedAt,
-
-                u.FullName AS DoctorName,
-                u.ProfileImagePath AS DoctorProfileImagePath,
-                d.Specialization
-
-            FROM MedicalRecords r
-
-            INNER JOIN DoctorProfiles d
-                ON r.DoctorId = d.DoctorId
-
-            INNER JOIN Users u
-                ON d.UserId = u.UserId
-
-            WHERE r.PatientId = @PatientId
-
-            ORDER BY r.CreatedAt DESC
-        `);
-
-    return result.recordset;
+    const result = await pool.query(
+        `SELECT
+            r."RecordId", r."PatientId", r."DoctorId", r."Diagnosis",
+            r."Notes", r."IpfsCID", r."BlockchainRecordId", r."CreatedAt",
+            u."FullName" AS "DoctorName",
+            u."ProfileImagePath" AS "DoctorProfileImagePath",
+            d."Specialization"
+         FROM "MedicalRecords" r
+         INNER JOIN "DoctorProfiles" d ON r."DoctorId" = d."DoctorId"
+         INNER JOIN "Users" u ON d."UserId" = u."UserId"
+         WHERE r."PatientId" = $1
+         ORDER BY r."CreatedAt" DESC`,
+        [patientId]
+    );
+    return result.rows;
 }
 
-// Get records for doctor after checking permission
-async function getDoctorRecords({
-    doctorId,
-    patientId
-}) {
-    const hasPermission =
-        await checkDoctorPermission(patientId, doctorId);
-
-    if (!hasPermission) {
-        throw new Error(
-            'Doctor does not have approved permission'
-        );
-    }
+async function getDoctorRecords({ doctorId, patientId }) {
+    const allowed = await checkDoctorPermission(patientId, doctorId);
+    if (!allowed) throw new Error('Doctor does not have approved permission');
 
     const pool = getPool();
-
-    const result = await pool
-        .request()
-        .input('PatientId', sql.Int, patientId)
-        .input('DoctorId', sql.Int, doctorId)
-        .query(`
-            SELECT
-                r.RecordId,
-                r.PatientId,
-                r.DoctorId,
-                r.Diagnosis,
-                r.Notes,
-                r.IpfsCID,
-                r.BlockchainRecordId,
-                r.CreatedAt,
-
-                pu.FullName AS PatientName,
-                pu.ProfileImagePath AS PatientProfileImagePath
-
-            FROM MedicalRecords r
-
-            INNER JOIN PatientProfiles pp
-                ON r.PatientId = pp.PatientId
-
-            INNER JOIN Users pu
-                ON pp.UserId = pu.UserId
-
-            WHERE r.PatientId = @PatientId
-              AND r.DoctorId = @DoctorId
-
-            ORDER BY r.CreatedAt DESC
-        `);
-
-    return result.recordset;
+    const result = await pool.query(
+        `SELECT
+            r."RecordId", r."PatientId", r."DoctorId", r."Diagnosis",
+            r."Notes", r."IpfsCID", r."BlockchainRecordId", r."CreatedAt",
+            pu."FullName" AS "PatientName",
+            pu."ProfileImagePath" AS "PatientProfileImagePath"
+         FROM "MedicalRecords" r
+         INNER JOIN "PatientProfiles" pp ON r."PatientId" = pp."PatientId"
+         INNER JOIN "Users" pu ON pp."UserId" = pu."UserId"
+         WHERE r."PatientId" = $1 AND r."DoctorId" = $2
+         ORDER BY r."CreatedAt" DESC`,
+        [patientId, doctorId]
+    );
+    return result.rows;
 }
 
 module.exports = {

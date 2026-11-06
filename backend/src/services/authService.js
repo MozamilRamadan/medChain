@@ -1,237 +1,134 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { sql, getPool } = require('../config/db');
+const { getPool } = require('../config/db');
 
 async function registerUser({
-    fullName,
-    phone,
-    nationalId,
-    password,
-    roles,
-    licenseNumber,
-    specialization
+    fullName, phone, nationalId, password, roles,
+    licenseNumber, specialization
 }) {
     if (!Array.isArray(roles) || roles.length === 0) {
         throw new Error('At least one role is required');
     }
 
     const allowedRoles = ['patient', 'doctor'];
-
-    for (const role of roles) {
-        if (!allowedRoles.includes(role)) {
-            throw new Error(`Invalid role: ${role}`);
-        }
+    if (roles.some(role => !allowedRoles.includes(role))) {
+        throw new Error('Invalid role');
     }
 
     const uniqueRoles = [...new Set(roles)];
 
-    const pool = getPool();
-
-    const existingUser = await pool
-        .request()
-        .input('NationalId', sql.NVarChar(30), nationalId)
-        .query(`
-            SELECT UserId
-            FROM Users
-            WHERE NationalId = @NationalId
-        `);
-
-    if (existingUser.recordset.length > 0) {
-        throw new Error(
-            'An account with this National ID already exists'
-        );
+    if (uniqueRoles.includes('doctor') &&
+        (!licenseNumber || !licenseNumber.trim())) {
+        throw new Error('License number is required for doctor registration');
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
-
-    const transaction = new sql.Transaction(pool);
+    const pool = getPool();
+    const client = await pool.connect();
 
     try {
-        await transaction.begin();
+        await client.query('BEGIN');
 
-        const userResult = await new sql.Request(transaction)
-            .input('FullName', sql.NVarChar(100), fullName)
-            .input('Phone', sql.NVarChar(20), phone)
-            .input('NationalId', sql.NVarChar(30), nationalId)
-            .input('PasswordHash', sql.NVarChar(255), passwordHash)
-            .query(`
-                INSERT INTO Users
-                (
-                    FullName,
-                    Phone,
-                    NationalId,
-                    PasswordHash
-                )
-                OUTPUT INSERTED.UserId
-                VALUES
-                (
-                    @FullName,
-                    @Phone,
-                    @NationalId,
-                    @PasswordHash
-                )
-            `);
+        const existing = await client.query(
+            'SELECT "UserId" FROM "Users" WHERE "NationalId" = $1',
+            [nationalId]
+        );
 
-        const userId = userResult.recordset[0].UserId;
+        if (existing.rowCount) {
+            throw new Error('An account with this National ID already exists');
+        }
+
+        const passwordHash = await bcrypt.hash(password, 12);
+
+        const inserted = await client.query(
+            `INSERT INTO "Users"
+                ("FullName", "Phone", "NationalId", "PasswordHash")
+             VALUES ($1, $2, $3, $4)
+             RETURNING "UserId"`,
+            [fullName, phone, nationalId, passwordHash]
+        );
+
+        const userId = inserted.rows[0].UserId;
 
         if (uniqueRoles.includes('patient')) {
-            await new sql.Request(transaction)
-                .input('UserId', sql.Int, userId)
-                .query(`
-                    INSERT INTO PatientProfiles
-                    (
-                        UserId
-                    )
-                    VALUES
-                    (
-                        @UserId
-                    )
-                `);
+            await client.query(
+                'INSERT INTO "PatientProfiles" ("UserId") VALUES ($1)',
+                [userId]
+            );
         }
 
         if (uniqueRoles.includes('doctor')) {
-            if (!licenseNumber || licenseNumber.trim().length === 0) {
-                throw new Error(
-                    'License number is required for doctor registration'
-                );
-            }
-
-            await new sql.Request(transaction)
-                .input('UserId', sql.Int, userId)
-                .input(
-                    'LicenseNumber',
-                    sql.NVarChar(50),
-                    licenseNumber.trim()
-                )
-                .input(
-                    'Specialization',
-                    sql.NVarChar(100),
-                    specialization?.trim() || null
-                )
-                .query(`
-                    INSERT INTO DoctorProfiles
-                    (
-                        UserId,
-                        LicenseNumber,
-                        Specialization
-                    )
-                    VALUES
-                    (
-                        @UserId,
-                        @LicenseNumber,
-                        @Specialization
-                    )
-                `);
+            await client.query(
+                `INSERT INTO "DoctorProfiles"
+                    ("UserId", "LicenseNumber", "Specialization")
+                 VALUES ($1, $2, $3)`,
+                [userId, licenseNumber.trim(), specialization?.trim() || null]
+            );
         }
 
-        await transaction.commit();
-
-        return {
-            userId,
-            roles: uniqueRoles
-        };
-
+        await client.query('COMMIT');
+        return { userId, roles: uniqueRoles };
     } catch (error) {
-        await transaction.rollback();
+        await client.query('ROLLBACK');
         throw error;
+    } finally {
+        client.release();
     }
 }
 
-
-async function loginUser({
-    nationalId,
-    password
-}) {
+async function loginUser({ nationalId, password }) {
     const pool = getPool();
 
-    const result = await pool
-        .request()
-        .input('NationalId', sql.NVarChar(30), nationalId)
-        .query(`
-            SELECT
-                UserId,
-                FullName,
-                Phone,
-                NationalId,
-                PasswordHash
-            FROM Users
-            WHERE NationalId = @NationalId
-        `);
-
-    if (result.recordset.length === 0) {
-        throw new Error(
-            'Invalid National ID or password'
-        );
-    }
-
-    const user = result.recordset[0];
-
-    const passwordValid = await bcrypt.compare(
-        password,
-        user.PasswordHash
+    const result = await pool.query(
+        `SELECT "UserId", "FullName", "Phone", "NationalId", "PasswordHash"
+         FROM "Users"
+         WHERE "NationalId" = $1`,
+        [nationalId]
     );
 
-    if (!passwordValid) {
-        throw new Error(
-            'Invalid National ID or password'
-        );
+    if (!result.rowCount) {
+        throw new Error('Invalid National ID or password');
     }
 
-        
-    const rolesResult = await pool
-        .request()
-        .input('UserId', sql.Int, user.UserId)
-        .query(`
-            SELECT
-                'patient' AS Role,
-                PatientId AS RoleId
-            FROM PatientProfiles
-            WHERE UserId = @UserId
+    const user = result.rows[0];
 
-            UNION ALL
+    // Keep existing password hashes unchanged. Never reset hashes during migration.
+    const passwordValid = await bcrypt.compare(password, user.PasswordHash);
+    if (!passwordValid) {
+        throw new Error('Invalid National ID or password');
+    }
 
-            SELECT
-                'doctor' AS Role,
-                DoctorId AS RoleId
-            FROM DoctorProfiles
-            WHERE UserId = @UserId
+    const rolesResult = await pool.query(
+        `SELECT 'patient' AS "Role", "PatientId" AS "RoleId"
+           FROM "PatientProfiles" WHERE "UserId" = $1
+         UNION ALL
+         SELECT 'doctor' AS "Role", "DoctorId" AS "RoleId"
+           FROM "DoctorProfiles" WHERE "UserId" = $1
+         UNION ALL
+         SELECT "Role", "UserId" AS "RoleId"
+           FROM "UserRoles" WHERE "UserId" = $1`,
+        [user.UserId]
+    );
 
-            UNION ALL
-
-            SELECT
-                Role,
-                UserId AS RoleId
-            FROM UserRoles
-            WHERE UserId = @UserId
-        `);
-
-    const roles = rolesResult.recordset;
+    if (!process.env.JWT_SECRET) {
+        throw new Error('JWT_SECRET is not configured');
+    }
 
     const token = jwt.sign(
-        {
-            userId: user.UserId
-        },
+        { userId: user.UserId },
         process.env.JWT_SECRET,
-        {
-            expiresIn: '7d'
-        }
+        { expiresIn: '7d' }
     );
 
     return {
         token,
-
         user: {
             userId: user.UserId,
             fullName: user.FullName,
             phone: user.Phone,
             nationalId: user.NationalId,
-            roles
+            roles: rolesResult.rows
         }
     };
 }
 
-
-module.exports = {
-    registerUser,
-    loginUser
-};
+module.exports = { registerUser, loginUser };
