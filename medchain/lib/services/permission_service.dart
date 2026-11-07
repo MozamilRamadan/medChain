@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:medchen/config/api_config.dart';
 
 class PermissionService {
-  static const String baseUrl =
-     'http://10.192.197.93:5000/api';
+  //static const String baseUrl ='http://10.192.197.93:5000/api';
+  static const String baseUrl = ApiConfig.baseUrl;
 
   // ============================================================
   // Doctor -> Request permission

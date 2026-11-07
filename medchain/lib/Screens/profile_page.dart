@@ -527,7 +527,16 @@ class _ProfilePageState extends State<ProfilePage> {
                 value: profile['nationalId']?.toString() ??
                     'Not available',
                 icon: Icons.badge_outlined,
-              ),
+              ),const SizedBox(height: 14),
+              TextFormField(
+                initialValue: _profile?['patientId']?.toString() ?? 'Not available',
+                readOnly: true,
+                decoration: const InputDecoration(
+                  labelText: 'Patient ID',
+                  prefixIcon: Icon(Icons.numbers_outlined),
+                  border: OutlineInputBorder(),
+                ),
+),
               if ((profile['specialization']?.toString() ?? '')
                   .isNotEmpty) ...[
                 const SizedBox(height: 14),
