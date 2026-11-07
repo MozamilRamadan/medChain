@@ -1,9 +1,5 @@
 
 const {
-    addRecord: addBlockchainRecord
-} = require("../services/blockchainService");
-
-const {
     uploadRecord
 } = require("../services/ipfsService");
 
@@ -34,6 +30,7 @@ async function getRecords(req, res) {
             success: true,
             records
         });
+
     } catch (error) {
         console.error("Get records error:", error);
 
@@ -53,9 +50,15 @@ async function addRecord(req, res) {
             doctorId,
             diagnosis,
             notes
-        } = req.body;
+        } = req.body || {};
 
-        if (!patientId || !doctorId || !diagnosis) {
+        // Validate required fields
+        if (
+            patientId === undefined ||
+            doctorId === undefined ||
+            typeof diagnosis !== "string" ||
+            !diagnosis.trim()
+        ) {
             return res.status(400).json({
                 success: false,
                 message: "Patient ID, doctor ID and diagnosis are required"
@@ -77,6 +80,18 @@ async function addRecord(req, res) {
             });
         }
 
+        if (
+            notes !== undefined &&
+            notes !== null &&
+            typeof notes !== "string"
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "Notes must be a string"
+            });
+        }
+
+        // Check doctor permission
         const hasPermission = await checkDoctorPermission(
             parsedPatientId,
             parsedDoctorId
@@ -92,38 +107,37 @@ async function addRecord(req, res) {
         const recordData = {
             patientId: parsedPatientId,
             doctorId: parsedDoctorId,
-            diagnosis,
-            notes: notes || "",
+            diagnosis: diagnosis.trim(),
+            notes: notes?.trim() || "",
             createdAt: new Date().toISOString()
         };
 
+        // Upload medical record to IPFS
         const cid = await uploadRecord(recordData);
+
+        if (!cid) {
+            throw new Error("IPFS upload failed: CID was not returned");
+        }
 
         console.log("IPFS CID:", cid);
 
-        const txHash = await addBlockchainRecord(
-            parsedPatientId.toString(),
-            cid
-        );
-
-        console.log("Blockchain Transaction:", txHash);
-
+        // Save record to PostgreSQL
         const sqlRecord = await saveMedicalRecord({
             patientId: parsedPatientId,
             doctorId: parsedDoctorId,
-            diagnosis,
-            notes,
+            diagnosis: recordData.diagnosis,
+            notes: recordData.notes,
             ipfsCID: cid,
-            blockchainRecordId: txHash
+            blockchainRecordId: null
         });
 
         return res.status(201).json({
             success: true,
             message: "Medical record added successfully",
             record: sqlRecord,
-            cid,
-            transactionHash: txHash
+            cid
         });
+
     } catch (error) {
         console.error("Add record error:", error);
 
@@ -143,8 +157,10 @@ async function getDoctorPatientRecords(req, res) {
         const patientId = Number(req.params.patientId);
 
         if (
-            !Number.isInteger(doctorId) || doctorId <= 0 ||
-            !Number.isInteger(patientId) || patientId <= 0
+            !Number.isInteger(doctorId) ||
+            doctorId <= 0 ||
+            !Number.isInteger(patientId) ||
+            patientId <= 0
         ) {
             return res.status(400).json({
                 success: false,
@@ -161,10 +177,15 @@ async function getDoctorPatientRecords(req, res) {
             success: true,
             records
         });
+
     } catch (error) {
         console.error("Get doctor records error:", error);
 
-        return res.status(403).json({
+        const statusCode = error.message.includes("approved permission")
+            ? 403
+            : 500;
+
+        return res.status(statusCode).json({
             success: false,
             message: error.message
         });
@@ -184,7 +205,6 @@ async function deleteRecord(req, res) {
             });
         }
 
-        // req.user.userId is set by requireAuth middleware.
         const deletedRecord = await deleteMedicalRecord({
             recordId,
             userId: req.user.userId
@@ -192,9 +212,10 @@ async function deleteRecord(req, res) {
 
         return res.status(200).json({
             success: true,
-            message: "Medical record deleted from SQL Server",
+            message: "Medical record deleted successfully",
             recordId: deletedRecord.RecordId
         });
+
     } catch (error) {
         if (error.code === "RECORD_NOT_FOUND_OR_FORBIDDEN") {
             return res.status(404).json({
